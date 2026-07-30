@@ -19,7 +19,8 @@ function getPhoneNumberId() {
 
 async function sendTextMessage(to, text) {
   try {
-    const url = `${WHATSAPP_API_BASE}/${getPhoneNumberId()}/messages`;
+    const phoneNumberId = getPhoneNumberId();
+    const url = `${WHATSAPP_API_BASE}/${phoneNumberId}/messages`;
     const body = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -28,7 +29,7 @@ async function sendTextMessage(to, text) {
       text: { preview_url: false, body: text },
     };
 
-    logger.debug('Sending WhatsApp text:', { to, textLength: text.length });
+    logger.info('Sending WhatsApp text:', { to, textLength: text.length, phoneNumberId });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -38,10 +39,11 @@ async function sendTextMessage(to, text) {
 
     const data = await response.json();
     if (!response.ok) {
-      logger.error('WhatsApp API error:', response.status, data);
+      logger.error('WhatsApp API error:', response.status, JSON.stringify(data));
       throw new Error(`WhatsApp API error: ${data.error?.message || response.status}`);
     }
 
+    logger.info('WhatsApp API success:', { messageId: data.messages?.[0]?.id });
     return data;
   } catch (err) {
     logger.error('sendTextMessage error:', err.message);
