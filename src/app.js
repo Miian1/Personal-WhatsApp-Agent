@@ -12,6 +12,8 @@ const webhookRoutes = require('./api/webhook');
 const sendRoutes = require('./api/send');
 const whatsappController = require('./controllers/whatsappController');
 const knowledgeService = require('./services/knowledgeService');
+const reminderService = require('./services/reminderService');
+const campaignService = require('./services/campaignService');
 const Knowledge = require('./models/Knowledge');
 const Lead = require('./models/Lead');
 
@@ -168,12 +170,98 @@ app.get('/api/knowledge', auth, requireDB, async (req, res) => {
 
 app.get('/api/stats', auth, requireDB, async (req, res) => {
   try {
+    const Reminder = require('./models/Reminder');
     const totalChats = await require('./models/Chat').countDocuments({ isActive: true });
     const totalLeads = await Lead.countDocuments({});
     const totalKnowledge = await Knowledge.countDocuments({ isActive: true });
     const newLeads = await Lead.countDocuments({ status: 'new' });
-    res.json({ success: true, data: { totalChats, totalLeads, totalKnowledge, newLeads } });
+    const pendingReminders = await Reminder.countDocuments({ status: 'pending' });
+    res.json({ success: true, data: { totalChats, totalLeads, totalKnowledge, newLeads, pendingReminders } });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reminders
+app.get('/api/reminders', auth, requireDB, async (req, res) => {
+  try {
+    const reminders = await reminderService.getReminders(req.query);
+    res.json({ success: true, data: reminders });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/reminders', auth, requireDB, async (req, res) => {
+  try {
+    const { title, description, phone, scheduledAt, type, leadId } = req.body;
+    if (!title || !phone || !scheduledAt) return res.status(400).json({ error: 'Title, phone, and scheduledAt are required' });
+    const reminder = await reminderService.createReminder({ title, description, phone, scheduledAt: new Date(scheduledAt), type: type || 'custom', leadId });
+    res.json({ success: true, data: reminder });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/reminders/:id', auth, requireDB, async (req, res) => {
+  try {
+    const reminder = await reminderService.updateReminder(req.params.id, req.body);
+    if (!reminder) return res.status(404).json({ error: 'Reminder not found' });
+    res.json({ success: true, data: reminder });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/reminders/:id', auth, requireDB, async (req, res) => {
+  try {
+    await reminderService.deleteReminder(req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Campaigns / Broadcasts
+app.get('/api/campaigns', auth, requireDB, async (req, res) => {
+  try {
+    const campaigns = await campaignService.getCampaigns(req.query);
+    res.json({ success: true, data: campaigns });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/campaigns', auth, requireDB, async (req, res) => {
+  try {
+    const { name, message, recipients, type, scheduledAt } = req.body;
+    if (!name || !message || !recipients || !recipients.length) return res.status(400).json({ error: 'Name, message, and recipients are required' });
+    const campaign = await campaignService.createCampaign({
+      name, message, recipients,
+      type: type || 'immediate',
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+    });
+    res.json({ success: true, data: campaign });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/campaigns/:id/send', auth, requireDB, async (req, res) => {
+  try {
+    const result = await campaignService.sendCampaign(req.params.id);
+    res.json({ success: true, data: result });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/campaigns/:id', auth, requireDB, async (req, res) => {
+  try {
+    await campaignService.deleteCampaign(req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Cron / Scheduler - call via external cron service (e.g., cron-job.org every 10 min)
+app.get('/api/cron/check', async (req, res) => {
+  try {
+    const secret = req.query.secret || req.headers['x-cron-secret'];
+    if (secret !== process.env.CRON_SECRET && process.env.CRON_SECRET) {
+      return res.status(401).json({ error: 'Invalid secret' });
+    }
+    await connectDB();
+    const reminders = await reminderService.checkAndSendDueReminders();
+    const campaigns = await campaignService.checkAndSendScheduledCampaigns();
+    res.json({ success: true, data: { reminders, campaigns } });
+  } catch (err) {
+    logger.error('Cron check error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

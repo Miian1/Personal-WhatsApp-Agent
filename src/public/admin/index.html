@@ -165,6 +165,8 @@ tr:last-child td { border-bottom: none; }
       <div class="nav-item" data-page="chats"><i class="fas fa-comments"></i> Chats</div>
       <div class="nav-item" data-page="knowledge"><i class="fas fa-database"></i> Knowledge</div>
       <div class="nav-item" data-page="leads"><i class="fas fa-users"></i> Leads</div>
+      <div class="nav-item" data-page="reminders"><i class="fas fa-bell"></i> Reminders</div>
+      <div class="nav-item" data-page="broadcast"><i class="fas fa-bullhorn"></i> Broadcast</div>
     </div>
     <div class="sidebar-footer">
       <button class="btn" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
@@ -227,6 +229,26 @@ tr:last-child td { border-bottom: none; }
         </div>
       </div>
 
+      <div class="page" id="page-reminders">
+        <div class="table-container">
+          <div class="table-header"><h4>Reminders</h4><button class="btn btn-primary btn-sm" id="add-reminder-btn"><i class="fas fa-plus"></i> Add Reminder</button></div>
+          <table>
+            <thead><tr><th>Title</th><th>Phone</th><th>Type</th><th>Scheduled</th><th>Status</th><th></th></tr></thead>
+            <tbody id="reminders-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="page" id="page-broadcast">
+        <div class="table-container" style="margin-bottom:24px;">
+          <div class="table-header"><h4>Broadcast Campaigns</h4><button class="btn btn-primary btn-sm" id="add-campaign-btn"><i class="fas fa-plus"></i> New Campaign</button></div>
+          <table>
+            <thead><tr><th>Name</th><th>Recipients</th><th>Sent</th><th>Failed</th><th>Status</th><th>Date</th><th></th></tr></thead>
+            <tbody id="campaigns-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -281,13 +303,15 @@ function showPage(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
   if (nav) nav.classList.add('active');
-  const titles = { dashboard: 'Dashboard', chats: 'Chats', knowledge: 'Knowledge Base', leads: 'Leads' };
+  const titles = { dashboard: 'Dashboard', chats: 'Chats', knowledge: 'Knowledge Base', leads: 'Leads', reminders: 'Reminders', broadcast: 'Broadcast' };
   document.getElementById('page-title').textContent = titles[name] || name;
   currentPage = name;
   if (name === 'dashboard') loadDashboard();
   if (name === 'chats') loadChats();
   if (name === 'knowledge') loadKnowledge();
   if (name === 'leads') loadLeads();
+  if (name === 'reminders') loadReminders();
+  if (name === 'broadcast') loadCampaigns();
 }
 
 // Auth
@@ -332,6 +356,7 @@ async function loadDashboard() {
       <div class="stat-card"><div class="stat-icon" style="background:#e3f2fd;color:#1976d2;"><i class="fas fa-users"></i></div><div class="stat-value">${d.totalLeads}</div><div class="stat-label">Total Leads</div></div>
       <div class="stat-card"><div class="stat-icon" style="background:#f3e5f5;color:#7b1fa2;"><i class="fas fa-database"></i></div><div class="stat-value">${d.totalKnowledge}</div><div class="stat-label">Knowledge Entries</div></div>
       <div class="stat-card"><div class="stat-icon" style="background:#fff3e0;color:#f57c00;"><i class="fas fa-star"></i></div><div class="stat-value">${d.newLeads}</div><div class="stat-label">New Leads</div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:#fce4ec;color:#c62828;"><i class="fas fa-bell"></i></div><div class="stat-value">${d.pendingReminders || 0}</div><div class="stat-label">Pending Reminders</div></div>
     `;
   }
   const chats = await api('/api/chats');
@@ -418,7 +443,174 @@ async function loadKnowledge() {
 }
 
 document.getElementById('add-knowledge-btn').addEventListener('click', () => showKnowledgeModal());
-document.getElementById('add-knowledge-btn').addEventListener('click', () => showKnowledgeModal());
+
+document.getElementById('add-reminder-btn').addEventListener('click', () => showReminderModal());
+document.getElementById('add-campaign-btn').addEventListener('click', () => showCampaignModal());
+
+function showReminderModal(data = null) {
+  document.getElementById('modal-title').textContent = data ? 'Edit Reminder' : 'New Reminder';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label>Title</label><input id="r-title" value="${escapeHtml(data?.title || '')}" placeholder="Follow up on website project"></div>
+    <div class="form-group"><label>Description</label><textarea id="r-description" rows="2" placeholder="Details...">${escapeHtml(data?.description || '')}</textarea></div>
+    <div class="form-group"><label>Phone Number</label><input id="r-phone" value="${data?.phone || ''}" placeholder="923001234567"></div>
+    <div class="form-group"><label>Schedule Date & Time</label><input type="datetime-local" id="r-scheduled" value="${data?.scheduledAt ? new Date(data.scheduledAt).toISOString().slice(0,16) : ''}"></div>
+    <div class="form-group"><label>Type</label><select id="r-type">${['follow_up','meeting','call_back','custom'].map(t => `<option value="${t}" ${data?.type===t?'selected':''}>${t.replace('_',' ')}</option>`).join('')}</select></div>
+  `;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-sm" style="background:#f0f0f0;" onclick="document.getElementById('modal-overlay').classList.add('hidden')">Cancel</button>
+    <button class="btn btn-primary btn-sm" onclick="saveReminder('${data?._id || ''}')">${data ? 'Update' : 'Create'}</button>
+  `;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+async function saveReminder(id) {
+  const title = document.getElementById('r-title').value.trim();
+  const description = document.getElementById('r-description').value.trim();
+  const phone = document.getElementById('r-phone').value.trim();
+  const scheduledAt = document.getElementById('r-scheduled').value;
+  const type = document.getElementById('r-type').value;
+  if (!title || !phone || !scheduledAt) { showToast('Title, phone and date required', 'error'); return; }
+  const url = id ? '/api/reminders/' + id : '/api/reminders';
+  const method = id ? 'PUT' : 'POST';
+  const res = await api(url, { method, body: JSON.stringify({ title, description, phone, scheduledAt: new Date(scheduledAt).toISOString(), type }) });
+  if (res.success) { showToast(id ? 'Updated' : 'Created'); document.getElementById('modal-overlay').classList.add('hidden'); loadReminders(); }
+  else showToast(res.error || 'Failed', 'error');
+}
+
+async function loadReminders() {
+  const res = await api('/api/reminders');
+  const tbody = document.getElementById('reminders-table-body');
+  if (!res.success || !res.data.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-bell"></i><p>No reminders. Add one to schedule follow-ups.</p></div></td></tr>';
+    return;
+  }
+  const now = new Date();
+  tbody.innerHTML = res.data.map(r => {
+    const due = new Date(r.scheduledAt) < now && r.status === 'pending';
+    const cls = due ? 'status-negotiation' : r.status === 'sent' ? 'status-won' : r.status === 'failed' ? 'status-lost' : 'status-new';
+    return `<tr>
+      <td><strong>${escapeHtml(r.title)}</strong>${r.description ? '<br><small style="color:#999">'+escapeHtml(r.description)+'</small>':''}</td>
+      <td>${r.phone}</td>
+      <td><span class="status-badge status-qualified">${r.type.replace('_',' ')}</span></td>
+      <td>${new Date(r.scheduledAt).toLocaleString()} ${due ? '<span style="color:#e74c3c;font-size:11px;">OVERDUE</span>' : ''}</td>
+      <td><span class="status-badge ${cls}">${r.status}</span></td>
+      <td>
+        <button class="btn btn-sm" style="background:#f0f0f0;" onclick="editReminder('${r._id}')"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="deleteReminder('${r._id}')"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function editReminder(id) {
+  const res = await api('/api/reminders');
+  const r = res.data?.find(x => x._id === id);
+  if (r) showReminderModal(r);
+}
+
+async function deleteReminder(id) {
+  if (!confirm('Delete this reminder?')) return;
+  const res = await api('/api/reminders/' + id, { method: 'DELETE' });
+  if (res.success) { showToast('Deleted'); loadReminders(); }
+  else showToast(res.error || 'Failed', 'error');
+}
+
+function showCampaignModal(data = null) {
+  const isEdit = !!data;
+  document.getElementById('modal-title').textContent = isEdit ? 'Edit Campaign' : 'New Broadcast Campaign';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label>Campaign Name</label><input id="c-name" value="${escapeHtml(data?.name || '')}" placeholder="Summer Promotion"></div>
+    <div class="form-group"><label>Message</label><textarea id="c-message" rows="4" placeholder="Hi {name}, we have a special offer...">${escapeHtml(data?.message || '')}</textarea><small style="color:#999">Use {name} to personalize each message</small></div>
+    <div class="form-group"><label>Recipients</label><textarea id="c-recipients" rows="4" placeholder="923001234567, John&#10;923001234568, Sarah&#10;Each line: phone, name (optional)">${data ? (data.recipients || []).map(r => r.name ? `${r.phone}, ${r.name}` : r.phone).join('\n') : ''}</textarea></div>
+    <div class="form-group"><label>Schedule</label><select id="c-type"><option value="immediate" ${data?.type==='immediate'||!data?'selected':''}>Send Now</option><option value="scheduled" ${data?.type==='scheduled'?'selected':''}>Schedule Later</option></select></div>
+    <div class="form-group" id="c-schedule-group" style="${data?.type==='scheduled'||!data ? 'display:none' : 'display:block'}"><label>Schedule Date & Time</label><input type="datetime-local" id="c-scheduled" value="${data?.scheduledAt ? new Date(data.scheduledAt).toISOString().slice(0,16) : ''}"></div>
+  `;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-sm" style="background:#f0f0f0;" onclick="document.getElementById('modal-overlay').classList.add('hidden')">Cancel</button>
+    <button class="btn btn-primary btn-sm" onclick="saveCampaign('${data?._id || ''}')">${isEdit ? 'Update' : 'Create & Send'}</button>
+  `;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  setTimeout(() => {
+    const sel = document.getElementById('c-type');
+    if (sel) sel.onchange = () => document.getElementById('c-schedule-group').style.display = sel.value === 'scheduled' ? 'block' : 'none';
+  }, 100);
+}
+
+async function saveCampaign(id) {
+  const name = document.getElementById('c-name').value.trim();
+  const message = document.getElementById('c-message').value.trim();
+  const recipientsRaw = document.getElementById('c-recipients').value.trim();
+  const type = document.getElementById('c-type').value;
+  const scheduledAt = document.getElementById('c-scheduled')?.value || null;
+
+  if (!name || !message || !recipientsRaw) { showToast('Name, message, and recipients required', 'error'); return; }
+
+  const recipients = recipientsRaw.split('\n').filter(Boolean).map(line => {
+    const parts = line.split(',').map(s => s.trim());
+    return { phone: parts[0].replace(/[^0-9]/g, ''), name: parts[1] || '' };
+  }).filter(r => r.phone.length >= 10);
+
+  if (!recipients.length) { showToast('No valid phone numbers', 'error'); return; }
+
+  const payload = { name, message, recipients, type };
+  if (type === 'scheduled' && scheduledAt) payload.scheduledAt = new Date(scheduledAt).toISOString();
+
+  const url = id ? '/api/campaigns/' + id : '/api/campaigns';
+  const method = id ? 'PUT' : 'POST';
+  const res = await api(url, { method, body: JSON.stringify(payload) });
+  if (!res.success) { showToast(res.error || 'Failed', 'error'); return; }
+
+  document.getElementById('modal-overlay').classList.add('hidden');
+  showToast('Campaign created');
+
+  if (type === 'immediate' && !id) {
+    showToast('Sending campaign...');
+    api('/api/campaigns/' + res.data._id + '/send', { method: 'POST' }).then(r => {
+      if (r.success) showToast(`Sent: ${r.data.sent}, Failed: ${r.data.failed}`);
+      loadCampaigns();
+    }).catch(() => showToast('Send failed', 'error'));
+  }
+  loadCampaigns();
+}
+
+async function loadCampaigns() {
+  const res = await api('/api/campaigns');
+  const tbody = document.getElementById('campaigns-table-body');
+  if (!res.success || !res.data.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-bullhorn"></i><p>No campaigns. Create one to send bulk messages.</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = res.data.map(c => {
+    const cls = c.status === 'sent' ? 'status-won' : c.status === 'scheduled' ? 'status-proposal' : c.status === 'draft' ? 'status-new' : c.status === 'sending' ? 'status-negotiation' : 'status-lost';
+    return `<tr>
+      <td><strong>${escapeHtml(c.name)}</strong></td>
+      <td>${c.totalCount || c.recipients?.length || 0}</td>
+      <td style="color:#2e7d32;">${c.sentCount || 0}</td>
+      <td style="color:#d32f2f;">${c.failedCount || 0}</td>
+      <td><span class="status-badge ${cls}">${c.status}</span></td>
+      <td>${new Date(c.createdAt).toLocaleDateString()}</td>
+      <td>
+        ${c.status === 'draft' || c.status === 'scheduled' ? `<button class="btn btn-sm" style="background:#f0f0f0;" onclick="sendCampaign('${c._id}')"><i class="fas fa-play"></i></button>` : ''}
+        <button class="btn btn-sm btn-danger" onclick="deleteCampaign('${c._id}')"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function sendCampaign(id) {
+  if (!confirm('Send this campaign now?')) return;
+  showToast('Sending...');
+  const res = await api('/api/campaigns/' + id + '/send', { method: 'POST' });
+  if (res.success) { showToast(`Sent: ${res.data.sent}, Failed: ${res.data.failed}`); loadCampaigns(); }
+  else showToast(res.error || 'Failed', 'error');
+}
+
+async function deleteCampaign(id) {
+  if (!confirm('Delete this campaign?')) return;
+  const res = await api('/api/campaigns/' + id, { method: 'DELETE' });
+  if (res.success) { showToast('Deleted'); loadCampaigns(); }
+  else showToast(res.error || 'Failed', 'error');
+}
 
 function showKnowledgeModal(data = null) {
   const isEdit = !!data;
