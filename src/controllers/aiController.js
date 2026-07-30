@@ -21,21 +21,18 @@ async function processMessage(chat, phone, userMessage) {
     });
 
     await memoryService.saveMessage(chat._id, 'assistant', aiResponse);
-
-    logger.info('Sending WhatsApp reply to:', { phone, preview: aiResponse.substring(0, 50) });
-    const sendResult = await whatsappService.sendTextMessage(phone, aiResponse);
-    logger.info('WhatsApp send successful:', sendResult);
+    await whatsappService.sendTextMessage(phone, aiResponse);
 
     checkAndSaveLead(chat, userMessage, aiResponse);
   } catch (err) {
-    logger.error('processMessage error:', err.message, err.stack);
+    logger.error('processMessage error:', err.message);
     try {
       await whatsappService.sendTextMessage(
         phone,
         'I apologize, but I encountered an error processing your request. Please try again or ask to speak with Mian Khizar for assistance.'
       );
     } catch (sendErr) {
-      logger.error('Failed to send error message:', sendErr.message, sendErr.stack);
+      logger.error('Failed to send error message:', sendErr.message);
     }
   }
 }
