@@ -1,5 +1,10 @@
+const mongoose = require('mongoose');
 const Knowledge = require('../models/Knowledge');
 const logger = require('../utils/logger');
+
+function validId(userId) {
+  return userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null;
+}
 
 async function searchKnowledge(query, userId = null, limit = 5) {
   try {
@@ -9,7 +14,8 @@ async function searchKnowledge(query, userId = null, limit = 5) {
       isActive: true,
       $text: { $search: query },
     };
-    if (userId) searchQuery.userId = userId;
+    const uid = validId(userId);
+    if (uid) searchQuery.userId = uid;
 
     const results = await Knowledge.find(
       searchQuery,
@@ -41,7 +47,8 @@ async function fallbackSearch(query, userId = null, limit = 5) {
         { tags: regex },
       ],
     };
-    if (userId) filter.userId = userId;
+    const uid = validId(userId);
+    if (uid) filter.userId = uid;
 
     return await Knowledge.find(filter).limit(limit).lean();
   } catch (err) {
@@ -52,7 +59,7 @@ async function fallbackSearch(query, userId = null, limit = 5) {
 
 async function createKnowledgeEntry({ title, content, tags = [], category = 'general', userId = null }) {
   try {
-    const entry = await Knowledge.create({ title, content, tags, category, userId });
+    const entry = await Knowledge.create({ title, content, tags, category, userId: validId(userId) });
     logger.info('Knowledge entry created:', { title });
     return entry;
   } catch (err) {
@@ -63,11 +70,9 @@ async function createKnowledgeEntry({ title, content, tags = [], category = 'gen
 
 async function getAllKnowledge(userId = null) {
   try {
-    const mongoose = require('mongoose');
     const filter = { isActive: true };
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      filter.userId = userId;
-    }
+    const uid = validId(userId);
+    if (uid) filter.userId = uid;
     return await Knowledge.find(filter).sort({ createdAt: -1 }).lean();
   } catch (err) {
     logger.error('getAllKnowledge error:', err.message);

@@ -1,6 +1,11 @@
+const mongoose = require('mongoose');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const logger = require('../utils/logger');
+
+function validId(userId) {
+  return userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null;
+}
 
 async function findOrCreateChat(phone) {
   try {
@@ -69,7 +74,8 @@ async function getChatById(chatId) {
 async function getAllChats(userId = null) {
   try {
     const filter = { isActive: true };
-    if (userId) filter.userId = userId;
+    const uid = validId(userId);
+    if (uid) filter.userId = uid;
     return await Chat.find(filter).sort({ updatedAt: -1 }).lean();
   } catch (err) {
     logger.error('getAllChats error:', err.message);

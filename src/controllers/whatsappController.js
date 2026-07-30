@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const connectDB = require('../config/db');
 const whatsappService = require('../services/whatsappService');
 const memoryService = require('../services/memoryService');
@@ -109,7 +110,6 @@ function isHumanHandoffRequested(text) {
 
 async function getChats(req, res) {
   try {
-    const mongoose = require('mongoose');
     const userId = req.user?.id || null;
     const isValid = userId && mongoose.Types.ObjectId.isValid(userId);
     const chats = await memoryService.getAllChats(isValid ? userId : null);
@@ -134,7 +134,6 @@ async function getChatMessages(req, res) {
 
 async function getLeads(req, res) {
   try {
-    const mongoose = require('mongoose');
     const userId = req.user?.id || null;
     const isValid = userId && mongoose.Types.ObjectId.isValid(userId);
     const filter = {};
