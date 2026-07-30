@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aris Admin - WhatsApp AI Agent</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+a { text-decoration: none; color: inherit; }
+
+/* Login */
+#login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); }
+#login-page.hidden { display: none; }
+.login-card { background: #fff; padding: 40px; border-radius: 16px; width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.login-card h1 { font-size: 24px; margin-bottom: 8px; text-align: center; }
+.login-card p { color: #666; text-align: center; margin-bottom: 32px; font-size: 14px; }
+.login-card .logo { text-align: center; margin-bottom: 24px; }
+.login-card .logo i { font-size: 48px; color: #25D366; }
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; color: #333; }
+.form-group input { width: 100%; padding: 12px 16px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border-color 0.2s; font-family: inherit; }
+.form-group input:focus { outline: none; border-color: #25D366; }
+.btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; font-family: inherit; }
+.btn:hover { opacity: 0.9; }
+.btn-primary { background: #25D366; color: #fff; width: 100%; }
+.btn-danger { background: #e74c3c; color: #fff; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+.error-msg { color: #e74c3c; font-size: 13px; margin-top: 12px; text-align: center; }
+
+/* App Layout */
+#app { display: flex; min-height: 100vh; }
+#app.hidden { display: none; }
+.sidebar { width: 260px; background: #1a1a2e; color: #fff; display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.sidebar-header h2 { font-size: 18px; display: flex; align-items: center; gap: 10px; }
+.sidebar-header h2 i { color: #25D366; }
+.sidebar-header small { display: block; margin-top: 4px; font-size: 11px; color: rgba(255,255,255,0.5); }
+.sidebar-nav { padding: 12px; flex: 1; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: background 0.2s; margin-bottom: 4px; font-size: 14px; }
+.nav-item:hover { background: rgba(255,255,255,0.08); }
+.nav-item.active { background: rgba(37,211,102,0.15); color: #25D366; }
+.nav-item i { width: 20px; text-align: center; }
+.sidebar-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+.sidebar-footer .btn { width: 100%; background: rgba(255,255,255,0.1); color: #fff; text-align: left; display: flex; align-items: center; gap: 8px; }
+.sidebar-footer .btn:hover { background: rgba(255,255,255,0.15); }
+
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { background: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e8e8e8; }
+.topbar h3 { font-size: 20px; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.content { padding: 24px; flex: 1; overflow-y: auto; }
+
+/* Cards */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.stat-card .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 18px; }
+.stat-card .stat-value { font-size: 28px; font-weight: 700; }
+.stat-card .stat-label { font-size: 13px; color: #666; margin-top: 4px; }
+
+/* Table */
+.table-container { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+.table-header { padding: 16px 20px; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: space-between; }
+.table-header h4 { font-size: 16px; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 12px 20px; font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; background: #f8f9fa; border-bottom: 1px solid #e8e8e8; }
+td { padding: 12px 20px; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+tr:hover { background: #f8f9fa; }
+tr:last-child td { border-bottom: none; }
+.clickable { cursor: pointer; color: #25D366; font-weight: 500; }
+.clickable:hover { text-decoration: underline; }
+.status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; display: inline-block; }
+.status-new { background: #e3f2fd; color: #1976d2; }
+.status-contacted { background: #fff3e0; color: #f57c00; }
+.status-qualified { background: #e8f5e9; color: #388e3c; }
+.status-proposal { background: #f3e5f5; color: #7b1fa2; }
+.status-negotiation { background: #fff8e1; color: #f9a825; }
+.status-won { background: #e8f5e9; color: #2e7d32; }
+.status-lost { background: #fbe9e7; color: #d32f2f; }
+
+/* Chat detail */
+.chat-messages { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); padding: 20px; max-height: 600px; overflow-y: auto; }
+.message { margin-bottom: 16px; max-width: 80%; }
+.message-user { margin-left: auto; }
+.message-assistant { margin-right: auto; }
+.message-human { margin-right: auto; }
+.message-bubble { padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
+.message-user .message-bubble { background: #25D366; color: #fff; border-bottom-right-radius: 4px; }
+.message-assistant .message-bubble { background: #f0f0f0; color: #1a1a2e; border-bottom-left-radius: 4px; }
+.message-human .message-bubble { background: #e3f2fd; color: #1a1a2e; border-bottom-left-radius: 4px; }
+.message-meta { font-size: 11px; color: #999; margin-top: 4px; padding: 0 4px; }
+.message-user .message-meta { text-align: right; }
+.message-role { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.message-user .message-role { text-align: right; color: #25D366; }
+.message-assistant .message-role { color: #666; }
+.message-human .message-role { color: #1976d2; }
+
+/* Modal */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-overlay.hidden { display: none; }
+.modal { background: #fff; border-radius: 16px; width: 500px; max-width: 90vw; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: space-between; }
+.modal-header h3 { font-size: 18px; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #999; }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid #e8e8e8; display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Forms in modal */
+.modal-body .form-group textarea { width: 100%; padding: 12px 16px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 80px; }
+.modal-body .form-group textarea:focus { outline: none; border-color: #25D366; }
+.modal-body .form-group select { width: 100%; padding: 12px 16px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: inherit; }
+.modal-body .form-group select:focus { outline: none; border-color: #25D366; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 60px 20px; color: #999; }
+.empty-state i { font-size: 48px; margin-bottom: 16px; }
+.empty-state p { font-size: 14px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 14px; z-index: 2000; opacity: 0; transform: translateY(20px); transition: all 0.3s; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { border-left: 4px solid #25D366; }
+.toast.error { border-left: 4px solid #e74c3c; }
+
+/* Page hidden */
+.page { display: none; }
+.page.active { display: block; }
+
+.loading { text-align: center; padding: 40px; color: #999; }
+.loading i { font-size: 24px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div id="login-page">
+  <div class="login-card">
+    <div class="logo"><i class="fab fa-whatsapp"></i></div>
+    <h1>Aris Admin</h1>
+    <p>WhatsApp AI Agent Dashboard</p>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="admin@example.com" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Enter password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Sign In</button>
+      <div class="error-msg" id="login-error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2><i class="fab fa-whatsapp"></i> Aris Admin</h2>
+      <small>WhatsApp AI Agent</small>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-item active" data-page="dashboard"><i class="fas fa-chart-bar"></i> Dashboard</div>
+      <div class="nav-item" data-page="chats"><i class="fas fa-comments"></i> Chats</div>
+      <div class="nav-item" data-page="knowledge"><i class="fas fa-database"></i> Knowledge</div>
+      <div class="nav-item" data-page="leads"><i class="fas fa-users"></i> Leads</div>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <h3 id="page-title">Dashboard</h3>
+      <div class="topbar-right">
+        <span style="font-size:13px;color:#666;" id="online-status"><i class="fas fa-circle" style="color:#25D366;font-size:10px;"></i> Connected</span>
+      </div>
+    </div>
+    <div class="content">
+
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="table-container">
+          <div class="table-header"><h4>Recent Chats</h4></div>
+          <div id="recent-chats"><div class="empty-state"><i class="fas fa-comments"></i><p>No chats yet</p></div></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-chats">
+        <div class="table-container">
+          <div class="table-header"><h4>All Conversations</h4></div>
+          <table>
+            <thead><tr><th>Phone</th><th>Customer</th><th>Last Message</th><th>Status</th><th>Date</th><th></th></tr></thead>
+            <tbody id="chats-table-body"></tbody>
+          </table>
+        </div>
+        <div id="chat-detail" style="display:none;margin-top:24px;">
+          <div class="table-header" style="display:flex;align-items:center;gap:12px;padding:12px 0;border:none;">
+            <button class="btn btn-sm" id="back-to-chats" style="background:#f0f0f0;"><i class="fas fa-arrow-left"></i> Back</button>
+            <h4>Chat Detail <span id="chat-detail-phone" style="font-weight:400;color:#666;"></span></h4>
+          </div>
+          <div class="chat-messages" id="chat-messages-container"></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-knowledge">
+        <div class="table-container">
+          <div class="table-header">
+            <h4>Knowledge Base</h4>
+            <button class="btn btn-primary btn-sm" id="add-knowledge-btn"><i class="fas fa-plus"></i> Add</button>
+          </div>
+          <table>
+            <thead><tr><th>Title</th><th>Category</th><th>Tags</th><th>Created</th><th></th></tr></thead>
+            <tbody id="knowledge-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="page" id="page-leads">
+        <div class="table-container">
+          <div class="table-header"><h4>Leads</h4></div>
+          <table>
+            <thead><tr><th>Name</th><th>Phone</th><th>Service</th><th>Budget</th><th>Status</th><th>Date</th><th></th></tr></thead>
+            <tbody id="leads-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Title</h3>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let token = localStorage.getItem('token');
+let currentPage = 'dashboard';
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type;
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  return fetch(API + path, { ...opts, headers }).then(r => r.json());
+}
+
+function login(email, password) {
+  return api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+}
+
+function checkAuth() {
+  if (!token) return false;
+  return api('/api/auth/verify', { method: 'POST' }).then(r => {
+    if (r.success) return true;
+    token = null; localStorage.removeItem('token'); return false;
+  }).catch(() => false);
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById('page-' + name);
+  if (page) page.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
+  if (nav) nav.classList.add('active');
+  const titles = { dashboard: 'Dashboard', chats: 'Chats', knowledge: 'Knowledge Base', leads: 'Leads' };
+  document.getElementById('page-title').textContent = titles[name] || name;
+  currentPage = name;
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'chats') loadChats();
+  if (name === 'knowledge') loadKnowledge();
+  if (name === 'leads') loadLeads();
+}
+
+// Auth
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const res = await login(email, password);
+  if (res.success) {
+    token = res.token; localStorage.setItem('token', token);
+    document.getElementById('login-page').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    loadDashboard();
+  } else {
+    errEl.textContent = res.error || 'Login failed';
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  token = null; localStorage.removeItem('token');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-page').classList.remove('hidden');
+});
+
+// Nav
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => showPage(item.dataset.page));
+});
+
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.add('hidden');
+});
+
+// Dashboard
+async function loadDashboard() {
+  const stats = await api('/api/stats');
+  if (stats.success) {
+    const d = stats.data;
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;color:#2e7d32;"><i class="fas fa-comments"></i></div><div class="stat-value">${d.totalChats}</div><div class="stat-label">Total Chats</div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:#e3f2fd;color:#1976d2;"><i class="fas fa-users"></i></div><div class="stat-value">${d.totalLeads}</div><div class="stat-label">Total Leads</div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:#f3e5f5;color:#7b1fa2;"><i class="fas fa-database"></i></div><div class="stat-value">${d.totalKnowledge}</div><div class="stat-label">Knowledge Entries</div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:#fff3e0;color:#f57c00;"><i class="fas fa-star"></i></div><div class="stat-value">${d.newLeads}</div><div class="stat-label">New Leads</div></div>
+    `;
+  }
+  const chats = await api('/api/chats');
+  if (chats.success && chats.data.length) {
+    const recent = chats.data.slice(0, 5);
+    document.getElementById('recent-chats').innerHTML = '<table><thead><tr><th>Phone</th><th>Last Message</th><th>Date</th></tr></thead><tbody>' +
+      recent.map(c => `<tr style="cursor:pointer" onclick="showPage('chats')"><td>${c.phone}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.lastMessage || '-'}</td><td>${new Date(c.updatedAt).toLocaleDateString()}</td></tr>`).join('') +
+      '</tbody></table>';
+  }
+}
+
+// Chats
+async function loadChats() {
+  document.getElementById('chat-detail').style.display = 'none';
+  const res = await api('/api/chats');
+  const tbody = document.getElementById('chats-table-body');
+  if (!res.success || !res.data.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-comments"></i><p>No conversations yet</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = res.data.map(c => `
+    <tr>
+      <td>${c.phone}</td>
+      <td>${c.customerName || '-'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.lastMessage || '-'}</td>
+      <td>${c.humanMode ? '<span class="status-badge status-proposal">Human</span>' : '<span class="status-badge status-contacted">AI</span>'}</td>
+      <td>${new Date(c.updatedAt).toLocaleString()}</td>
+      <td><span class="clickable" onclick="openChat('${c._id}','${c.phone}')">View</span></td>
+    </tr>
+  `).join('');
+}
+
+async function openChat(id, phone) {
+  const res = await api('/api/chat/' + id);
+  document.getElementById('chats-table-body').parentElement.style.display = 'none';
+  document.getElementById('chat-detail').style.display = 'block';
+  document.getElementById('chat-detail-phone').textContent = '- ' + phone;
+  const container = document.getElementById('chat-messages-container');
+  if (!res.success || !res.data.length) {
+    container.innerHTML = '<div class="empty-state"><i class="fas fa-comment-slash"></i><p>No messages</p></div>';
+    return;
+  }
+  container.innerHTML = res.data.map(m => `
+    <div class="message message-${m.role}">
+      <div class="message-role">${m.role === 'user' ? 'Customer' : m.role === 'assistant' ? 'Aris AI' : 'Human'}</div>
+      <div class="message-bubble">${escapeHtml(m.content)}</div>
+      <div class="message-meta">${new Date(m.createdAt).toLocaleString()} ${m.messageType !== 'text' ? '[' + m.messageType + ']' : ''}</div>
+    </div>
+  `).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+document.getElementById('back-to-chats').addEventListener('click', () => {
+  document.getElementById('chat-detail').style.display = 'none';
+  document.getElementById('chats-table-body').parentElement.style.display = '';
+});
+
+// Knowledge
+async function loadKnowledge() {
+  const res = await api('/api/knowledge');
+  const tbody = document.getElementById('knowledge-table-body');
+  if (!res.success || !res.data.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><i class="fas fa-database"></i><p>No knowledge entries yet. Click "Add" to seed business info.</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = res.data.map(k => `
+    <tr>
+      <td><strong>${escapeHtml(k.title)}</strong></td>
+      <td><span class="status-badge status-qualified">${k.category || 'general'}</span></td>
+      <td>${(k.tags || []).map(t => `<span style="display:inline-block;background:#f0f0f0;padding:2px 8px;border-radius:4px;font-size:11px;margin:2px;">${t}</span>`).join(' ')}</td>
+      <td>${new Date(k.createdAt).toLocaleDateString()}</td>
+      <td>
+        <button class="btn btn-sm" style="background:#f0f0f0;" onclick="editKnowledge('${k._id}')"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="deleteKnowledge('${k._id}')"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('add-knowledge-btn').addEventListener('click', () => showKnowledgeModal());
+document.getElementById('add-knowledge-btn').addEventListener('click', () => showKnowledgeModal());
+
+function showKnowledgeModal(data = null) {
+  const isEdit = !!data;
+  document.getElementById('modal-title').textContent = isEdit ? 'Edit Knowledge' : 'Add Knowledge';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label>Title</label><input id="k-title" value="${escapeHtml(data?.title || '')}" placeholder="e.g. Website Development Pricing"></div>
+    <div class="form-group"><label>Content</label><textarea id="k-content" rows="4" placeholder="Detailed information...">${escapeHtml(data?.content || '')}</textarea></div>
+    <div class="form-group"><label>Category</label><input id="k-category" value="${data?.category || 'general'}" placeholder="general, services, pricing, faq"></div>
+    <div class="form-group"><label>Tags (comma separated)</label><input id="k-tags" value="${(data?.tags || []).join(', ')}" placeholder="web, pricing, react"></div>
+  `;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-sm" style="background:#f0f0f0;" onclick="document.getElementById('modal-overlay').classList.add('hidden')">Cancel</button>
+    <button class="btn btn-primary btn-sm" onclick="saveKnowledge('${data?._id || ''}')">${isEdit ? 'Update' : 'Add'}</button>
+  `;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+async function saveKnowledge(id) {
+  const title = document.getElementById('k-title').value.trim();
+  const content = document.getElementById('k-content').value.trim();
+  const category = document.getElementById('k-category').value.trim() || 'general';
+  const tags = document.getElementById('k-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+  if (!title || !content) { showToast('Title and content required', 'error'); return; }
+  const url = id ? '/api/knowledge/' + id : '/api/knowledge';
+  const method = id ? 'PUT' : 'POST';
+  const res = await api(url, { method, body: JSON.stringify({ title, content, category, tags }) });
+  if (res.success) { showToast(id ? 'Updated' : 'Added'); document.getElementById('modal-overlay').classList.add('hidden'); loadKnowledge(); }
+  else showToast(res.error || 'Failed', 'error');
+}
+
+async function deleteKnowledge(id) {
+  if (!confirm('Delete this knowledge entry?')) return;
+  const res = await api('/api/knowledge/' + id, { method: 'DELETE' });
+  if (res.success) { showToast('Deleted'); loadKnowledge(); }
+  else showToast(res.error || 'Failed', 'error');
+}
+
+function editKnowledge(id) {
+  const row = document.querySelector(`#knowledge-table-body tr:has(button[onclick*="'${id}'"])`);
+  const title = row?.querySelector('td strong')?.textContent || '';
+  const cat = row?.querySelector('.status-badge')?.textContent || 'general';
+  const tags = row?.querySelector('td:nth-child(3)')?.textContent.trim().split(/\s+/).filter(t => t && t !== ',') || [];
+  api('/api/knowledge').then(res => {
+    const entry = res.data?.find(k => k._id === id);
+    if (entry) showKnowledgeModal(entry);
+  });
+}
+
+// Leads
+async function loadLeads() {
+  const res = await api('/api/leads');
+  const tbody = document.getElementById('leads-table-body');
+  if (!res.success || !res.data.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-users"></i><p>No leads captured yet</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = res.data.map(l => `
+    <tr>
+      <td>${escapeHtml(l.name || '-')}</td>
+      <td>${l.phone}</td>
+      <td>${escapeHtml(l.service || '-')}</td>
+      <td>${escapeHtml(l.budget || '-')}</td>
+      <td><span class="status-badge status-${l.status}">${l.status}</span></td>
+      <td>${new Date(l.createdAt).toLocaleDateString()}</td>
+      <td><button class="btn btn-sm" style="background:#f0f0f0;" onclick="editLead('${l._id}')"><i class="fas fa-edit"></i></button></td>
+    </tr>
+  `).join('');
+}
+
+async function editLead(id) {
+  const res = await api('/api/leads');
+  const lead = res.data?.find(l => l._id === id);
+  if (!lead) return;
+  document.getElementById('modal-title').textContent = 'Edit Lead';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label>Name</label><input id="l-name" value="${escapeHtml(lead.name || '')}"></div>
+    <div class="form-group"><label>Phone</label><input id="l-phone" value="${lead.phone}"></div>
+    <div class="form-group"><label>Email</label><input id="l-email" value="${lead.email || ''}"></div>
+    <div class="form-group"><label>Service</label><input id="l-service" value="${escapeHtml(lead.service || '')}"></div>
+    <div class="form-group"><label>Budget</label><input id="l-budget" value="${escapeHtml(lead.budget || '')}"></div>
+    <div class="form-group"><label>Timeline</label><input id="l-timeline" value="${escapeHtml(lead.timeline || '')}"></div>
+    <div class="form-group"><label>Status</label><select id="l-status">
+      ${['new','contacted','qualified','proposal','negotiation','won','lost'].map(s => `<option value="${s}" ${lead.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+    </select></div>
+    <div class="form-group"><label>Notes</label><textarea id="l-notes" rows="3">${escapeHtml(lead.notes || '')}</textarea></div>
+  `;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-sm" style="background:#f0f0f0;" onclick="document.getElementById('modal-overlay').classList.add('hidden')">Cancel</button>
+    <button class="btn btn-primary btn-sm" onclick="saveLead('${id}')">Save</button>
+  `;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+async function saveLead(id) {
+  const updates = {};
+  ['name','phone','email','service','budget','timeline','status','notes'].forEach(f => {
+    const el = document.getElementById('l-' + f);
+    if (el) updates[f] = el.value.trim();
+  });
+  const res = await api('/api/leads/' + id, { method: 'PATCH', body: JSON.stringify(updates) });
+  if (res.success) { showToast('Lead updated'); document.getElementById('modal-overlay').classList.add('hidden'); loadLeads(); }
+  else showToast(res.error || 'Failed', 'error');
+}
+
+// Init
+(async function init() {
+  if (token) {
+    const valid = await checkAuth();
+    if (valid) {
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      loadDashboard();
+      return;
+    }
+  }
+})();
+</script>
+</body>
+</html>
