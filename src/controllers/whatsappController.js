@@ -109,8 +109,10 @@ function isHumanHandoffRequested(text) {
 
 async function getChats(req, res) {
   try {
+    const mongoose = require('mongoose');
     const userId = req.user?.id || null;
-    const chats = await memoryService.getAllChats(userId);
+    const isValid = userId && mongoose.Types.ObjectId.isValid(userId);
+    const chats = await memoryService.getAllChats(isValid ? userId : null);
     res.json({ success: true, data: chats });
   } catch (err) {
     logger.error('getChats error:', err.message);
@@ -132,9 +134,11 @@ async function getChatMessages(req, res) {
 
 async function getLeads(req, res) {
   try {
+    const mongoose = require('mongoose');
     const userId = req.user?.id || null;
+    const isValid = userId && mongoose.Types.ObjectId.isValid(userId);
     const filter = {};
-    if (userId) filter.userId = userId;
+    if (isValid) filter.userId = userId;
     const leads = await Lead.find(filter).sort({ createdAt: -1 }).lean();
     res.json({ success: true, data: leads });
   } catch (err) {

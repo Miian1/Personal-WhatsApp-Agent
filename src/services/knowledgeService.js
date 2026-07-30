@@ -63,8 +63,11 @@ async function createKnowledgeEntry({ title, content, tags = [], category = 'gen
 
 async function getAllKnowledge(userId = null) {
   try {
+    const mongoose = require('mongoose');
     const filter = { isActive: true };
-    if (userId) filter.userId = userId;
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      filter.userId = userId;
+    }
     return await Knowledge.find(filter).sort({ createdAt: -1 }).lean();
   } catch (err) {
     logger.error('getAllKnowledge error:', err.message);
