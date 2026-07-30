@@ -14,16 +14,6 @@ const knowledgeService = require('./services/knowledgeService');
 const app = express();
 app.set('trust proxy', 1);
 
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (err) {
-    logger.error('DB connection error:', err.message);
-    res.status(500).json({ error: 'Database connection failed' });
-  }
-});
-
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
@@ -37,20 +27,30 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+async function requireDB(req, res, next) {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    logger.error('DB connection error:', err.message);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+}
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.use('/api/webhook', webhookRoutes);
-app.use('/api/send', sendRoutes);
+app.use('/api/send', requireDB, sendRoutes);
 
-app.get('/api/chats', auth, whatsappController.getChats);
-app.get('/api/chat/:id', auth, whatsappController.getChatMessages);
-app.get('/api/leads', auth, whatsappController.getLeads);
+app.get('/api/chats', auth, requireDB, whatsappController.getChats);
+app.get('/api/chat/:id', auth, requireDB, whatsappController.getChatMessages);
+app.get('/api/leads', auth, requireDB, whatsappController.getLeads);
 
-app.post('/api/human-mode', auth, whatsappController.setHumanMode);
+app.post('/api/human-mode', auth, requireDB, whatsappController.setHumanMode);
 
-app.post('/api/knowledge', auth, async (req, res) => {
+app.post('/api/knowledge', auth, requireDB, async (req, res) => {
   try {
     const { title, content, tags, category } = req.body;
     if (!title || !content) {
@@ -71,7 +71,7 @@ app.post('/api/knowledge', auth, async (req, res) => {
   }
 });
 
-app.get('/api/knowledge', auth, async (req, res) => {
+app.get('/api/knowledge', auth, requireDB, async (req, res) => {
   try {
     const userId = req.user?.id || null;
     const knowledge = await knowledgeService.getAllKnowledge(userId);

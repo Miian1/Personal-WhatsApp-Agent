@@ -1,3 +1,4 @@
+const connectDB = require('../config/db');
 const whatsappService = require('../services/whatsappService');
 const memoryService = require('../services/memoryService');
 const aiController = require('./aiController');
@@ -8,6 +9,7 @@ const HUMAN_HANDOFF_KEYWORDS = ['human', 'agent', 'owner', 'mian', 'support', 't
 
 async function handleIncomingMessage(req, res) {
   try {
+    await connectDB();
     const body = req.body;
 
     if (body.object !== 'whatsapp_business_account') {
