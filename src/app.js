@@ -14,6 +14,16 @@ const knowledgeService = require('./services/knowledgeService');
 const app = express();
 app.set('trust proxy', 1);
 
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    logger.error('DB connection error:', err.message);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
+
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));

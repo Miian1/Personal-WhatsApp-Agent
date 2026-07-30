@@ -9,13 +9,17 @@ if (!cached) {
 async function connectDB() {
   if (cached.conn) return cached.conn;
 
-  const uri = process.env.MONGODB_URI;
+  let uri = process.env.MONGODB_URI;
   if (!uri) throw new Error('MONGODB_URI is not defined');
+
+  if (!uri.includes('/?')) {
+    uri = uri.replace('mongodb.net/', 'mongodb.net/whatsapp_agent?');
+  }
 
   cached.promise = mongoose.connect(uri, {
     bufferCommands: false,
     maxPoolSize: 5,
-    serverSelectionTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 15000,
     socketTimeoutMS: 45000,
   });
 
