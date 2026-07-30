@@ -12,6 +12,7 @@ const whatsappController = require('./controllers/whatsappController');
 const knowledgeService = require('./services/knowledgeService');
 
 const app = express();
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors());
