@@ -43,6 +43,8 @@ async function requireDB(req, res, next) {
   }
 }
 
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
