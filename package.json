@@ -1,0 +1,22 @@
+{
+  "name": "whatsapp-ai-agent",
+  "version": "1.0.0",
+  "description": "WhatsApp Personal AI Agent - Intelligent WhatsApp assistant powered by Groq AI",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "vercel-build": "echo 'Build complete'"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

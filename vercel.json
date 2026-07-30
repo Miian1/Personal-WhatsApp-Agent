@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install",
+  "outputDirectory": ".",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.js"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30,
+      "memory": 512
+    }
+  },
+  "env": {
+    "MONGODB_URI": "@mongodb-uri",
+    "GROQ_API_KEY": "@groq-api-key",
+    "WHATSAPP_ACCESS_TOKEN": "@whatsapp-access-token",
+    "WHATSAPP_PHONE_NUMBER_ID": "@whatsapp-phone-number-id",
+    "WHATSAPP_VERIFY_TOKEN": "@whatsapp-verify-token",
+    "JWT_SECRET": "@jwt-secret",
+    "APP_URL": "@app-url",
+    "GROQ_MODEL": "llama-3.3-70b-versatile",
+    "NODE_ENV": "production"
+  }
+}
