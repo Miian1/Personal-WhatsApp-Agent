@@ -2,12 +2,10 @@ const mongoose = require('mongoose');
 const connectDB = require('../config/db');
 const whatsappService = require('../services/whatsappService');
 const memoryService = require('../services/memoryService');
+const humanModeService = require('../services/humanModeService');
 const aiController = require('./aiController');
 const Lead = require('../models/Lead');
 const logger = require('../utils/logger');
-
-const HUMAN_HANDOFF_KEYWORDS = ['human', 'agent', 'owner', 'mian', 'support', 'talk to human', 'real person'];
-const AI_RESTORE_KEYWORDS = ['back to ai', 'back to bot', 'ai mode', 'bot mode', 'stop human mode', 'restore ai'];
 
 async function handleIncomingMessage(req, res) {
   try {
@@ -68,23 +66,17 @@ async function handleIncomingMessage(req, res) {
           const chat = await memoryService.findOrCreateChat(phone);
           await memoryService.saveMessage(chat._id, 'user', text, messageType, mediaUrl);
 
-          if (text && isTextMatch(text, AI_RESTORE_KEYWORDS)) {
-            await memoryService.setHumanMode(chat._id, false);
-            await whatsappService.sendTextMessage(phone, 'AI mode has been restored. Aris is back to help you!');
+          if (text && humanModeService.isRestoreRequest(text)) {
+            await humanModeService.disableHumanMode(chat._id, phone);
+            await memoryService.saveMessage(chat._id, 'assistant', humanModeService.RESTORE_CONFIRMATION);
+            await whatsappService.sendTextMessage(phone, humanModeService.RESTORE_CONFIRMATION);
             continue;
           }
 
-          if (text && isTextMatch(text, HUMAN_HANDOFF_KEYWORDS)) {
-            await memoryService.setHumanMode(chat._id, true);
-            await memoryService.saveMessage(
-              chat._id,
-              'assistant',
-              'You are now connected with Mian Khizar. He will respond to you shortly. Please wait while he reviews your messages.'
-            );
-            await whatsappService.sendTextMessage(
-              phone,
-              'You are now connected with Mian Khizar. He will respond to you shortly. Please wait while he reviews your messages.'
-            );
+          if (text && humanModeService.isHandoffRequest(text)) {
+            await humanModeService.enableHumanMode(chat._id, phone);
+            await memoryService.saveMessage(chat._id, 'assistant', humanModeService.HANDOFF_CONFIRMATION);
+            await whatsappService.sendTextMessage(phone, humanModeService.HANDOFF_CONFIRMATION);
             continue;
           }
 
@@ -103,17 +95,6 @@ async function handleIncomingMessage(req, res) {
     logger.error('handleIncomingMessage error:', err.message);
     res.status(200).json({ success: true });
   }
-}
-
-function isTextMatch(text, keywords) {
-  if (!text) return false;
-  const lower = text.toLowerCase().trim();
-  return keywords.some(keyword => {
-    if (lower === keyword) return true;
-    if (lower.startsWith(keyword + ' ') || lower.startsWith(keyword + ',')) return true;
-    if (lower.includes(' ' + keyword + ' ')) return true;
-    return false;
-  });
 }
 
 async function getChats(req, res) {
@@ -160,8 +141,12 @@ async function setHumanMode(req, res) {
     if (!chatId) {
       return res.status(400).json({ error: 'chatId is required' });
     }
-    await memoryService.setHumanMode(chatId, enabled !== false);
-    res.json({ success: true, message: `Human mode ${enabled !== false ? 'enabled' : 'disabled'}` });
+    if (enabled === false) {
+      await humanModeService.disableHumanMode(chatId, null);
+    } else {
+      await humanModeService.enableHumanMode(chatId, null);
+    }
+    res.json({ success: true, message: `Human mode ${enabled === false ? 'disabled' : 'enabled'}` });
   } catch (err) {
     logger.error('setHumanMode error:', err.message);
     res.status(500).json({ error: 'Failed to update human mode' });
