@@ -153,10 +153,34 @@ async function setHumanMode(req, res) {
   }
 }
 
+async function sendManualReply(req, res) {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    const chat = await memoryService.getChatById(id);
+    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+
+    await humanModeService.enableHumanMode(id, chat.phone);
+    await memoryService.saveMessage(id, 'assistant', message.trim());
+    await whatsappService.sendTextMessage(chat.phone, message.trim());
+
+    logger.info('Manual reply sent by admin:', { phone: chat.phone, chatId: id });
+    res.json({ success: true, message: 'Reply sent' });
+  } catch (err) {
+    logger.error('sendManualReply error:', err.message);
+    res.status(500).json({ error: 'Failed to send reply: ' + err.message });
+  }
+}
+
 module.exports = {
   handleIncomingMessage,
   getChats,
   getChatMessages,
   getLeads,
   setHumanMode,
+  sendManualReply,
 };

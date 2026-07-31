@@ -110,6 +110,7 @@ app.delete('/api/leads/:id', auth, requireDB, async (req, res) => {
 });
 
 app.post('/api/human-mode', auth, requireDB, whatsappController.setHumanMode);
+app.post('/api/chat/:id/reply', auth, requireDB, whatsappController.sendManualReply);
 
 app.post('/api/knowledge', auth, requireDB, async (req, res) => {
   try {

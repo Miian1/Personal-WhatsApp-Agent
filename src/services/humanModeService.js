@@ -10,9 +10,9 @@ const HANDOFF_KEYWORDS = [
 ];
 
 const RESTORE_KEYWORDS = [
-  'back to ai', 'back to bot', 'ai mode', 'bot mode',
+  'khizar-ai', 'khizar ai', 'back to ai', 'back to bot', 'ai mode', 'bot mode',
   'stop human mode', 'restore ai', 'turn ai back on',
-  'automated again', 'back to aris', 'continue with ai',
+  'automated again', 'back to khizar ai', 'continue with ai',
 ];
 
 function normalize(text) {
@@ -58,10 +58,10 @@ async function disableHumanMode(chatId, phone) {
 
 const HANDOFF_CONFIRMATION =
   'You are now connected with Mian Khizar. He will respond to you shortly. ' +
-  'Please wait while he reviews your messages. If you need to return to the AI assistant, just say "back to ai".';
+  'Please wait while he reviews your messages. If you want Khizar AI help again, just say "khizar-ai".';
 
 const RESTORE_CONFIRMATION =
-  'AI mode has been restored. Aris is back and ready to help you! ' +
+  'AI mode has been restored. Khizar AI is back and ready to help you! ' +
   'If you need Mian directly, just say "human".';
 
 module.exports = {
