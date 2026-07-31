@@ -4,6 +4,7 @@ const whatsappService = require('../services/whatsappService');
 const memoryService = require('../services/memoryService');
 const humanModeService = require('../services/humanModeService');
 const aiController = require('./aiController');
+const { runDueChecksFireAndForget } = require('../services/schedulerService');
 const Lead = require('../models/Lead');
 const logger = require('../utils/logger');
 
@@ -11,6 +12,8 @@ async function handleIncomingMessage(req, res) {
   try {
     await connectDB();
     const body = req.body;
+
+    runDueChecksFireAndForget();
 
     if (body.object !== 'whatsapp_business_account') {
       return res.status(400).json({ error: 'Invalid webhook object' });
@@ -102,6 +105,7 @@ async function getChats(req, res) {
     const userId = req.user?.id || null;
     const isValid = userId && mongoose.Types.ObjectId.isValid(userId);
     const chats = await memoryService.getAllChats(isValid ? userId : null);
+    runDueChecksFireAndForget();
     res.json({ success: true, data: chats });
   } catch (err) {
     logger.error('getChats error:', err.message);

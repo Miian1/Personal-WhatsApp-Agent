@@ -250,7 +250,8 @@ app.delete('/api/campaigns/:id', auth, requireDB, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Cron / Scheduler - runs via Vercel Cron Jobs (vercel.json) or external cron (cron-job.org)
+// Cron / Scheduler - can be called by an external service (cron-job.org etc)
+// Reminders/campaigns are ALSO checked opportunistically via schedulerService on webhooks and admin views.
 app.get('/api/cron/check', async (req, res) => {
   try {
     const isVercelCron = req.headers['x-vercel-cron'] === '1';
@@ -260,11 +261,23 @@ app.get('/api/cron/check', async (req, res) => {
       return res.status(401).json({ error: 'Invalid secret' });
     }
     await connectDB();
-    const reminders = await reminderService.checkAndSendDueReminders();
-    const campaigns = await campaignService.checkAndSendScheduledCampaigns();
+    const { runDueChecks } = require('./services/schedulerService');
+    const { reminders, campaigns } = await runDueChecks();
     res.json({ success: true, data: { reminders, campaigns } });
   } catch (err) {
     logger.error('Cron check error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual trigger from the admin dashboard (authenticated) - useful for testing
+app.get('/api/cron/run-now', auth, requireDB, async (req, res) => {
+  try {
+    const { runDueChecks } = require('./services/schedulerService');
+    const { reminders, campaigns } = await runDueChecks();
+    res.json({ success: true, data: { reminders, campaigns } });
+  } catch (err) {
+    logger.error('Run-now error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

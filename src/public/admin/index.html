@@ -338,7 +338,7 @@ tr:last-child td { border-bottom: none; }
 
       <div class="page" id="page-reminders">
         <div class="table-container">
-          <div class="table-header"><h4>Reminders</h4><button class="btn btn-primary btn-sm" id="add-reminder-btn"><i class="fas fa-plus"></i> Add Reminder</button></div>
+          <div class="table-header"><h4>Reminders</h4><div style="display:flex;gap:8px;"><button class="btn btn-sm" id="run-now-btn" style="background:#e2e8f0;"><i class="fas fa-play"></i> Run Now</button><button class="btn btn-primary btn-sm" id="add-reminder-btn"><i class="fas fa-plus"></i> Add Reminder</button></div></div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Title</th><th>Phone</th><th>Type</th><th>Scheduled</th><th>Status</th><th></th></tr></thead>
@@ -673,6 +673,26 @@ document.getElementById('add-knowledge-btn').addEventListener('click', () => sho
 
 document.getElementById('add-reminder-btn').addEventListener('click', () => showReminderModal());
 document.getElementById('add-campaign-btn').addEventListener('click', () => showCampaignModal());
+
+document.getElementById('run-now-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('run-now-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+  try {
+    const res = await api('/api/cron/run-now');
+    if (res.success && res.data) {
+      const r = res.data.reminders || {};
+      showToast(`Done: ${r.sent || 0} sent, ${r.failed || 0} failed, ${r.pending || 0} pending`);
+    } else {
+      showToast(res.error || 'Run failed', 'error');
+    }
+  } catch (e) {
+    showToast('Run failed', 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-play"></i> Run Now';
+  loadReminders();
+});
 
 function showReminderModal(data = null) {
   document.getElementById('modal-title').textContent = data ? 'Edit Reminder' : 'New Reminder';
