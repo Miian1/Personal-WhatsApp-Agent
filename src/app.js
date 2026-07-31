@@ -250,11 +250,13 @@ app.delete('/api/campaigns/:id', auth, requireDB, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Cron / Scheduler - call via external cron service (e.g., cron-job.org every 10 min)
+// Cron / Scheduler - runs via Vercel Cron Jobs (vercel.json) or external cron (cron-job.org)
 app.get('/api/cron/check', async (req, res) => {
   try {
+    const isVercelCron = req.headers['x-vercel-cron'] === '1';
     const secret = req.query.secret || req.headers['x-cron-secret'];
-    if (secret !== process.env.CRON_SECRET && process.env.CRON_SECRET) {
+    const secretOk = process.env.CRON_SECRET ? secret === process.env.CRON_SECRET : true;
+    if (!isVercelCron && !secretOk) {
       return res.status(401).json({ error: 'Invalid secret' });
     }
     await connectDB();

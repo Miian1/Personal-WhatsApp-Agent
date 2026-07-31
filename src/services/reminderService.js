@@ -36,6 +36,7 @@ async function checkAndSendDueReminders() {
     });
 
     let sent = 0;
+    let failed = 0;
     for (const reminder of due) {
       try {
         let text = `Reminder: ${reminder.title}`;
@@ -49,12 +50,17 @@ async function checkAndSendDueReminders() {
         sent++;
         logger.info('Reminder sent:', { title: reminder.title, phone: reminder.phone });
       } catch (err) {
-        reminder.status = 'failed';
+        reminder.retryCount = (reminder.retryCount || 0) + 1;
+        reminder.lastError = err.message;
+        if (reminder.retryCount >= 3) {
+          reminder.status = 'failed';
+          failed++;
+        }
         await reminder.save();
-        logger.error('Reminder failed:', { title: reminder.title, error: err.message });
+        logger.error('Reminder send failed:', { title: reminder.title, retry: reminder.retryCount, error: err.message });
       }
     }
-    return { sent, total: due.length };
+    return { sent, failed, pending: due.length - sent - failed };
   } catch (err) {
     logger.error('checkAndSendDueReminders error:', err.message);
     throw err;

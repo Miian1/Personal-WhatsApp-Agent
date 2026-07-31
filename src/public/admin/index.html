@@ -715,12 +715,13 @@ async function loadReminders() {
   tbody.innerHTML = res.data.map(r => {
     const due = new Date(r.scheduledAt) < now && r.status === 'pending';
     const cls = due ? 'status-negotiation' : r.status === 'sent' ? 'status-won' : r.status === 'failed' ? 'status-lost' : 'status-new';
+    const errHint = r.lastError ? `<br><small style="color:#e74c3c;font-size:11px;">${escapeHtml(r.lastError)}</small>` : '';
     return `<tr>
-      <td><strong>${escapeHtml(r.title)}</strong>${r.description ? '<br><small style="color:#999">'+escapeHtml(r.description)+'</small>':''}</td>
+      <td><strong>${escapeHtml(r.title)}</strong>${r.description ? '<br><small style="color:#999">'+escapeHtml(r.description)+'</small>':''}${errHint}</td>
       <td>${r.phone}</td>
       <td><span class="status-badge status-qualified">${r.type.replace('_',' ')}</span></td>
       <td>${new Date(r.scheduledAt).toLocaleString()} ${due ? '<span style="color:#e74c3c;font-size:11px;">OVERDUE</span>' : ''}</td>
-      <td><span class="status-badge ${cls}">${r.status}</span></td>
+      <td><span class="status-badge ${cls}">${r.status}${r.retryCount ? ` (retry ${r.retryCount})` : ''}</span></td>
       <td>
         <button class="btn btn-sm" style="background:#f0f0f0;" onclick="editReminder('${r._id}')"><i class="fas fa-edit"></i></button>
         <button class="btn btn-sm btn-danger" onclick="deleteReminder('${r._id}')"><i class="fas fa-trash"></i></button>

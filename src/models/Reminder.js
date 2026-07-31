@@ -43,6 +43,14 @@ const reminderSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  retryCount: {
+    type: Number,
+    default: 0,
+  },
+  lastError: {
+    type: String,
+    default: '',
+  },
 }, {
   timestamps: true,
 });
