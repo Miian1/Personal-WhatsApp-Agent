@@ -7,6 +7,7 @@ const Lead = require('../models/Lead');
 const logger = require('../utils/logger');
 
 const HUMAN_HANDOFF_KEYWORDS = ['human', 'agent', 'owner', 'mian', 'support', 'talk to human', 'real person'];
+const AI_RESTORE_KEYWORDS = ['back to ai', 'back to bot', 'ai mode', 'bot mode', 'stop human mode', 'restore ai'];
 
 async function handleIncomingMessage(req, res) {
   try {
@@ -67,7 +68,13 @@ async function handleIncomingMessage(req, res) {
           const chat = await memoryService.findOrCreateChat(phone);
           await memoryService.saveMessage(chat._id, 'user', text, messageType, mediaUrl);
 
-          if (text && isHumanHandoffRequested(text)) {
+          if (text && isTextMatch(text, AI_RESTORE_KEYWORDS)) {
+            await memoryService.setHumanMode(chat._id, false);
+            await whatsappService.sendTextMessage(phone, 'AI mode has been restored. Aris is back to help you!');
+            continue;
+          }
+
+          if (text && isTextMatch(text, HUMAN_HANDOFF_KEYWORDS)) {
             await memoryService.setHumanMode(chat._id, true);
             await memoryService.saveMessage(
               chat._id,
@@ -82,6 +89,7 @@ async function handleIncomingMessage(req, res) {
           }
 
           if (chat.humanMode) {
+            logger.info('Skipped AI reply - chat is in human mode:', { phone, chatId: chat._id });
             continue;
           }
 
@@ -97,10 +105,10 @@ async function handleIncomingMessage(req, res) {
   }
 }
 
-function isHumanHandoffRequested(text) {
+function isTextMatch(text, keywords) {
   if (!text) return false;
   const lower = text.toLowerCase().trim();
-  return HUMAN_HANDOFF_KEYWORDS.some(keyword => {
+  return keywords.some(keyword => {
     if (lower === keyword) return true;
     if (lower.startsWith(keyword + ' ') || lower.startsWith(keyword + ',')) return true;
     if (lower.includes(' ' + keyword + ' ')) return true;
