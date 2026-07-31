@@ -6,55 +6,98 @@ function validId(userId) {
   return userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null;
 }
 
+const STOP_WORDS = new Set([
+  'a', 'an', 'the', 'is', 'are', 'was', 'were', 'do', 'does', 'did',
+  'i', 'you', 'we', 'they', 'he', 'she', 'it', 'me', 'my', 'your',
+  'what', 'how', 'why', 'when', 'where', 'who', 'which', 'please',
+  'can', 'could', 'would', 'will', 'for', 'with', 'and', 'or', 'but',
+  'to', 'from', 'of', 'in', 'on', 'at', 'about', 'want', 'need', 'tell',
+  'know', 'have', 'has', 'been', 'being', 'some', 'any', 'all', 'this', 'that',
+]);
+
+function extractKeywords(query) {
+  const words = (query || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/);
+  return [...new Set(words.filter(w => w.length > 2 && !STOP_WORDS.has(w)))];
+}
+
 async function searchKnowledge(query, userId = null, limit = 5) {
   try {
     if (!query || query.trim().length === 0) return [];
+    const uid = validId(userId);
+    const filterBase = { isActive: true };
+    if (uid) filterBase.userId = uid;
 
     const searchQuery = {
-      isActive: true,
+      ...filterBase,
       $text: { $search: query },
     };
-    const uid = validId(userId);
-    if (uid) searchQuery.userId = uid;
 
-    const results = await Knowledge.find(
-      searchQuery,
-      { score: { $meta: 'textScore' } }
-    )
-      .sort({ score: { $meta: 'textScore' } })
-      .limit(limit)
-      .lean();
-
-    return results;
-  } catch (err) {
-    if (err.code === 27) {
-      logger.warn('Text index not found, falling back to regex search');
-      return await fallbackSearch(query, userId, limit);
+    let results;
+    try {
+      results = await Knowledge.find(
+        searchQuery,
+        { score: { $meta: 'textScore' } }
+      )
+        .sort({ score: { $meta: 'textScore' } })
+        .limit(limit)
+        .lean();
+    } catch (err) {
+      if (err.code !== 27) logger.error('text search error:', err.message);
+      results = [];
     }
+
+    if (results && results.length > 0) return results;
+
+    return await keywordSearch(query, uid, limit);
+  } catch (err) {
     logger.error('searchKnowledge error:', err.message);
     return [];
   }
 }
 
-async function fallbackSearch(query, userId = null, limit = 5) {
+async function keywordSearch(query, userId, limit) {
   try {
-    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const keywords = extractKeywords(query);
+    if (keywords.length === 0) return [];
+
     const filter = {
       isActive: true,
-      $or: [
-        { title: regex },
-        { content: regex },
-        { tags: regex },
-      ],
+      $or: keywords.map(kw => ({
+        $or: [
+          { title: new RegExp(kw, 'i') },
+          { content: new RegExp(kw, 'i') },
+          { tags: new RegExp(kw, 'i') },
+        ],
+      })),
     };
-    const uid = validId(userId);
-    if (uid) filter.userId = uid;
+    if (userId) filter.userId = userId;
 
-    return await Knowledge.find(filter).limit(limit).lean();
+    const all = await Knowledge.find(filter).lean();
+    if (all.length === 0) return [];
+
+    const scored = all.map(entry => {
+      let score = 0;
+      const title = (entry.title || '').toLowerCase();
+      const content = (entry.content || '').toLowerCase();
+      const tags = (entry.tags || []).map(t => t.toLowerCase());
+      for (const kw of keywords) {
+        if (title.includes(kw)) score += 5;
+        if (tags.includes(kw)) score += 4;
+        if (content.includes(kw)) score += 2;
+      }
+      return { ...entry, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.filter(e => e.score > 0).slice(0, limit);
   } catch (err) {
-    logger.error('fallbackSearch error:', err.message);
+    logger.error('keywordSearch error:', err.message);
     return [];
   }
+}
+
+async function fallbackSearch(query, userId = null, limit = 5) {
+  return keywordSearch(query, validId(userId), limit);
 }
 
 async function createKnowledgeEntry({ title, content, tags = [], category = 'general', userId = null }) {

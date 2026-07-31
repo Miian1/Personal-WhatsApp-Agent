@@ -11,11 +11,17 @@ async function generateResponse({ message, history, knowledge, systemPrompt }) {
 
     if (knowledge && knowledge.length > 0) {
       const knowledgeContext = knowledge
-        .map(k => `[${k.title}]: ${k.content}`)
+        .map(k => `<knowledge_entry>\n  <title>${k.title}</title>\n  <content>${k.content}</content>\n</knowledge_entry>`)
         .join('\n\n');
+
       messages.push({
         role: 'system',
-        content: `Here is relevant knowledge for context:\n\n${knowledgeContext}`,
+        content: `Knowledge Base Context\n===============\nThe following entries are the ONLY official facts you may use to answer business-related questions. Answer strictly from these entries.\n\n${knowledgeContext}\n\n===============\nINSTRUCTIONS:\n- Base your answer ONLY on the above knowledge entries.\n- If the user's question is not covered above, say: "I don't have that information right now. Let me connect you with Mian Khizar for the details."\n- Do not invent, guess, or add any business facts that are not in these entries.`,
+      });
+    } else {
+      messages.push({
+        role: 'system',
+        content: `No knowledge base entries matched this question. IMPORTANT: If the user asks about business facts, services, prices, or policies, do NOT guess. Reply: "I don't have that information right now. Let me connect you with Mian Khizar for the details." You may still have a brief, helpful general conversation, but never state unverified business details.`,
       });
     }
 
@@ -40,9 +46,11 @@ async function generateResponse({ message, history, knowledge, systemPrompt }) {
       body: JSON.stringify({
         model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         messages,
-        temperature: 0.7,
+        temperature: 0.3,
         max_tokens: 1024,
         top_p: 0.9,
+        frequency_penalty: 0,
+        presence_penalty: 0,
       }),
     });
 
