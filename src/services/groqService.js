@@ -11,12 +11,12 @@ async function generateResponse({ message, history, knowledge, systemPrompt }) {
 
     if (knowledge && knowledge.length > 0) {
       const knowledgeContext = knowledge
-        .map(k => `<knowledge_entry>\n  <title>${k.title}</title>\n  <content>${k.content}</content>\n</knowledge_entry>`)
+        .map(k => `<knowledge_entry>\n  <title>${k.title}</title>\n  <category>${k.category || 'general'}</category>\n  <content>${k.content}</content>\n</knowledge_entry>`)
         .join('\n\n');
 
       messages.push({
         role: 'system',
-        content: `Knowledge Base Context\n===============\nThe following entries are the ONLY official facts you may use to answer business-related questions. Answer strictly from these entries.\n\n${knowledgeContext}\n\n===============\nINSTRUCTIONS:\n- Base your answer ONLY on the above knowledge entries.\n- If the user's question is not covered above, say: "I don't have that information right now. Let me connect you with Mian Khizar for the details."\n- Do not invent, guess, or add any business facts that are not in these entries.`,
+        content: `Knowledge Base Context\n===============\nThe following entries are the ONLY official facts you may use to answer business-related questions. Answer strictly from these entries.\n\n${knowledgeContext}\n\n===============\nINSTRUCTIONS:\n- Base your answer ONLY on the above knowledge entries.\n- If the user's question is not covered above, say: "I don't have that information right now. Let me connect you with Mian Khizar for the details." or ask a follow-up question.\n- Do not invent, guess, or add any business facts that are not in these entries.`,
       });
     } else {
       messages.push({

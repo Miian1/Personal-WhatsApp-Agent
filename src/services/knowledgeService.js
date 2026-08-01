@@ -27,15 +27,11 @@ async function searchKnowledge(query, userId = null, limit = 5) {
     const filterBase = { isActive: true };
     if (uid) filterBase.userId = uid;
 
-    const searchQuery = {
-      ...filterBase,
-      $text: { $search: query },
-    };
-
-    let results;
+    // Hybrid retrieval: try text search first, then merge with keyword scores
+    let textResults = [];
     try {
-      results = await Knowledge.find(
-        searchQuery,
+      textResults = await Knowledge.find(
+        { ...filterBase, $text: { $search: query } },
         { score: { $meta: 'textScore' } }
       )
         .sort({ score: { $meta: 'textScore' } })
@@ -43,12 +39,21 @@ async function searchKnowledge(query, userId = null, limit = 5) {
         .lean();
     } catch (err) {
       if (err.code !== 27) logger.error('text search error:', err.message);
-      results = [];
+      textResults = [];
     }
 
-    if (results && results.length > 0) return results;
+    const keywordResults = await keywordSearch(query, uid, limit);
 
-    return await keywordSearch(query, uid, limit);
+    // Merge by id, keeping highest relevance ordering
+    const seen = new Set();
+    const merged = [];
+    for (const item of [...textResults, ...keywordResults]) {
+      if (seen.has(String(item._id))) continue;
+      seen.add(String(item._id));
+      merged.push(item);
+    }
+
+    return merged.slice(0, limit);
   } catch (err) {
     logger.error('searchKnowledge error:', err.message);
     return [];

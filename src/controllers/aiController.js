@@ -1,6 +1,6 @@
 const groqService = require('../services/groqService');
 const memoryService = require('../services/memoryService');
-const knowledgeService = require('../services/knowledgeService');
+const ragService = require('../services/ragService');
 const whatsappService = require('../services/whatsappService');
 const Lead = require('../models/Lead');
 const { getSystemPrompt } = require('../prompts/systemPrompt');
@@ -9,7 +9,12 @@ const logger = require('../utils/logger');
 async function processMessage(chat, phone, userMessage) {
   try {
     const history = await memoryService.getChatHistory(chat._id, 20);
-    const knowledge = await knowledgeService.searchKnowledge(userMessage, chat.userId);
+
+    // RAG retrieval: expand query with recent history, then fetch knowledge
+    const { context, sources } = await ragService.retrieveContext(userMessage, chat._id, chat.userId);
+    const knowledge = context
+      ? [{ title: 'Retrieved Context', content: context }]
+      : [];
 
     const systemPrompt = getSystemPrompt();
 
@@ -24,6 +29,7 @@ async function processMessage(chat, phone, userMessage) {
     await whatsappService.sendTextMessage(phone, aiResponse);
 
     checkAndSaveLead(chat, userMessage, aiResponse);
+    if (sources.length) logger.debug('RAG sources used:', sources);
   } catch (err) {
     logger.error('processMessage error:', err.message);
     try {
