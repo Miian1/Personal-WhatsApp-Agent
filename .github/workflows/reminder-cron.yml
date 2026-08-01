@@ -1,0 +1,20 @@
+name: Reminder Check Cron
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Trigger reminder check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake Vercel to send due reminders/messages
+        run: |
+          curl -fsS --retry 3 --retry-delay 5 \
+            "https://myyy-personal-whatsapp-ai-agenta.vercel.app/api/cron/check?secret=${{ secrets.CRON_SECRET }}" \
+            || echo "Trigger failed"
