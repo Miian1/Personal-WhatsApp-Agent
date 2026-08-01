@@ -19,12 +19,14 @@ async function connectDB() {
     uri = `mongodb+srv://${user}:${pass}@${host}/${db}?retryWrites=true&w=majority`;
   }
 
-  cached.promise = mongoose.connect(uri, {
-    bufferCommands: false,
-    maxPoolSize: 5,
-    serverSelectionTimeoutMS: 15000,
-    socketTimeoutMS: 45000,
-  });
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(uri, {
+      bufferCommands: false,
+      maxPoolSize: 5,
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
+    });
+  }
 
   cached.conn = await cached.promise;
   return cached.conn;

@@ -15,7 +15,7 @@ const knowledgeService = require('./services/knowledgeService');
 const reminderService = require('./services/reminderService');
 const campaignService = require('./services/campaignService');
 const scheduledMessageService = require('./services/scheduledMessageService');
-const { startAutoScheduler } = require('./services/schedulerService');
+const { startAutoScheduler, kickScheduler } = require('./services/schedulerService');
 const Knowledge = require('./models/Knowledge');
 const Lead = require('./models/Lead');
 
@@ -198,6 +198,7 @@ app.post('/api/reminders', auth, requireDB, async (req, res) => {
     const { title, description, phone, scheduledAt, type, leadId } = req.body;
     if (!title || !phone || !scheduledAt) return res.status(400).json({ error: 'Title, phone, and scheduledAt are required' });
     const reminder = await reminderService.createReminder({ title, description, phone, scheduledAt: new Date(scheduledAt), type: type || 'custom', leadId });
+    kickScheduler();
     res.json({ success: true, data: reminder });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -206,6 +207,7 @@ app.put('/api/reminders/:id', auth, requireDB, async (req, res) => {
   try {
     const reminder = await reminderService.updateReminder(req.params.id, req.body);
     if (!reminder) return res.status(404).json({ error: 'Reminder not found' });
+    kickScheduler();
     res.json({ success: true, data: reminder });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -234,6 +236,7 @@ app.post('/api/campaigns', auth, requireDB, async (req, res) => {
       type: type || 'immediate',
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
     });
+    kickScheduler();
     res.json({ success: true, data: campaign });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -270,6 +273,7 @@ app.post('/api/scheduled-messages', auth, requireDB, async (req, res) => {
       message,
       scheduledAt: new Date(scheduledAt),
     });
+    kickScheduler();
     res.json({ success: true, data: scheduled });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -278,6 +282,7 @@ app.put('/api/scheduled-messages/:id', auth, requireDB, async (req, res) => {
   try {
     const scheduled = await scheduledMessageService.updateScheduledMessage(req.params.id, req.body);
     if (!scheduled) return res.status(404).json({ error: 'Scheduled message not found' });
+    kickScheduler();
     res.json({ success: true, data: scheduled });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
