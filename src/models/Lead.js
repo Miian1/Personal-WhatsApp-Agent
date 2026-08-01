@@ -24,6 +24,11 @@ const leadSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  requirements: {
+    type: String,
+    trim: true,
+    default: '',
+  },
   budget: {
     type: String,
     trim: true,

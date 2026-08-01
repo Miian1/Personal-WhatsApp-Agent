@@ -86,7 +86,7 @@ app.get('/api/leads', auth, requireDB, whatsappController.getLeads);
 app.patch('/api/leads/:id', auth, requireDB, async (req, res) => {
   try {
     const { id } = req.params;
-    const allowed = ['name', 'email', 'phone', 'service', 'budget', 'timeline', 'status', 'notes'];
+    const allowed = ['name', 'email', 'phone', 'service', 'requirements', 'budget', 'timeline', 'status', 'notes'];
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];

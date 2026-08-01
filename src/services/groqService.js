@@ -1,6 +1,6 @@
 const logger = require('../utils/logger');
 
-async function generateResponse({ message, history, knowledge, systemPrompt }) {
+async function generateResponse({ message, history, knowledge, systemPrompt, leadContext }) {
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error('GROQ_API_KEY is not defined');
@@ -8,6 +8,13 @@ async function generateResponse({ message, history, knowledge, systemPrompt }) {
     const messages = [
       { role: 'system', content: systemPrompt },
     ];
+
+    if (leadContext) {
+      messages.push({
+        role: 'system',
+        content: leadContext,
+      });
+    }
 
     if (knowledge && knowledge.length > 0) {
       const knowledgeContext = knowledge

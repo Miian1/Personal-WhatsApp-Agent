@@ -330,7 +330,7 @@ tr:last-child td { border-bottom: none; }
           <div class="table-header"><h4>Leads</h4></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Name</th><th>Phone</th><th>Service</th><th>Budget</th><th>Status</th><th>Date</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Phone</th><th>Service</th><th>Requirements</th><th>Budget</th><th>Status</th><th></th></tr></thead>
               <tbody id="leads-table-body"></tbody>
             </table>
           </div>
@@ -1024,9 +1024,9 @@ async function loadLeads() {
       <td>${escapeHtml(l.name || '-')}</td>
       <td>${l.phone}</td>
       <td>${escapeHtml(l.service || '-')}</td>
+      <td style="max-width:240px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(l.requirements || '')}">${escapeHtml(l.requirements || '-')}</div></td>
       <td>${escapeHtml(l.budget || '-')}</td>
       <td><span class="status-badge status-${l.status}">${l.status}</span></td>
-      <td>${new Date(l.createdAt).toLocaleDateString()}</td>
       <td><button class="btn btn-sm" style="background:#f0f0f0;" onclick="editLead('${l._id}')"><i class="fas fa-edit"></i></button></td>
     </tr>
   `).join('');
@@ -1042,6 +1042,7 @@ async function editLead(id) {
     <div class="form-group"><label>Phone</label><input id="l-phone" value="${lead.phone}"></div>
     <div class="form-group"><label>Email</label><input id="l-email" value="${lead.email || ''}"></div>
     <div class="form-group"><label>Service</label><input id="l-service" value="${escapeHtml(lead.service || '')}"></div>
+    <div class="form-group"><label>Requirements</label><textarea id="l-requirements" rows="3">${escapeHtml(lead.requirements || '')}</textarea></div>
     <div class="form-group"><label>Budget</label><input id="l-budget" value="${escapeHtml(lead.budget || '')}"></div>
     <div class="form-group"><label>Timeline</label><input id="l-timeline" value="${escapeHtml(lead.timeline || '')}"></div>
     <div class="form-group"><label>Status</label><select id="l-status">
@@ -1058,7 +1059,7 @@ async function editLead(id) {
 
 async function saveLead(id) {
   const updates = {};
-  ['name','phone','email','service','budget','timeline','status','notes'].forEach(f => {
+  ['name','phone','email','service','requirements','budget','timeline','status','notes'].forEach(f => {
     const el = document.getElementById('l-' + f);
     if (el) updates[f] = el.value.trim();
   });
