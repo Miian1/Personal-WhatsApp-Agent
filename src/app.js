@@ -14,6 +14,7 @@ const whatsappController = require('./controllers/whatsappController');
 const knowledgeService = require('./services/knowledgeService');
 const reminderService = require('./services/reminderService');
 const campaignService = require('./services/campaignService');
+const scheduledMessageService = require('./services/scheduledMessageService');
 const Knowledge = require('./models/Knowledge');
 const Lead = require('./models/Lead');
 
@@ -247,6 +248,50 @@ app.delete('/api/campaigns/:id', auth, requireDB, async (req, res) => {
   try {
     await campaignService.deleteCampaign(req.params.id);
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Scheduled Messages
+app.get('/api/scheduled-messages', auth, requireDB, async (req, res) => {
+  try {
+    const scheduled = await scheduledMessageService.getScheduledMessages(req.query);
+    res.json({ success: true, data: scheduled });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/scheduled-messages', auth, requireDB, async (req, res) => {
+  try {
+    const { title, phone, message, scheduledAt } = req.body;
+    if (!phone || !message || !scheduledAt) return res.status(400).json({ error: 'Phone, message, and scheduledAt are required' });
+    const scheduled = await scheduledMessageService.createScheduledMessage({
+      title: title || '',
+      phone,
+      message,
+      scheduledAt: new Date(scheduledAt),
+    });
+    res.json({ success: true, data: scheduled });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/scheduled-messages/:id', auth, requireDB, async (req, res) => {
+  try {
+    const scheduled = await scheduledMessageService.updateScheduledMessage(req.params.id, req.body);
+    if (!scheduled) return res.status(404).json({ error: 'Scheduled message not found' });
+    res.json({ success: true, data: scheduled });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/scheduled-messages/:id', auth, requireDB, async (req, res) => {
+  try {
+    await scheduledMessageService.deleteScheduledMessage(req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/scheduled-messages/:id/send', auth, requireDB, async (req, res) => {
+  try {
+    const result = await scheduledMessageService.sendScheduledMessage(req.params.id);
+    res.json({ success: true, data: result });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

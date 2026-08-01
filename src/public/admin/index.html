@@ -255,6 +255,7 @@ tr:last-child td { border-bottom: none; }
       <div class="nav-item" data-page="knowledge"><i class="fas fa-database"></i> <span class="nav-text">Knowledge</span></div>
       <div class="nav-item" data-page="leads"><i class="fas fa-users"></i> <span class="nav-text">Leads</span></div>
       <div class="nav-item" data-page="reminders"><i class="fas fa-bell"></i> <span class="nav-text">Reminders</span></div>
+      <div class="nav-item" data-page="scheduled"><i class="fas fa-clock"></i> <span class="nav-text">Scheduled Msgs</span></div>
       <div class="nav-item" data-page="broadcast"><i class="fas fa-bullhorn"></i> <span class="nav-text">Broadcast</span></div>
     </div>
     <div class="sidebar-footer">
@@ -348,6 +349,18 @@ tr:last-child td { border-bottom: none; }
         </div>
       </div>
 
+      <div class="page" id="page-scheduled">
+        <div class="table-container">
+          <div class="table-header"><h4>Scheduled Messages</h4><div style="display:flex;gap:8px;"><button class="btn btn-sm" id="sched-run-now-btn" style="background:#e2e8f0;"><i class="fas fa-play"></i> Run Now</button><button class="btn btn-primary btn-sm" id="add-scheduled-btn"><i class="fas fa-plus"></i> New Message</button></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Title</th><th>Phone</th><th>Message</th><th>Scheduled</th><th>Status</th><th></th></tr></thead>
+              <tbody id="scheduled-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div class="page" id="page-broadcast">
         <div class="table-container" style="margin-bottom:24px;">
           <div class="table-header"><h4>Broadcast Campaigns</h4><button class="btn btn-primary btn-sm" id="add-campaign-btn"><i class="fas fa-plus"></i> New Campaign</button></div>
@@ -414,7 +427,7 @@ function showPage(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
   if (nav) nav.classList.add('active');
-  const titles = { dashboard: 'Dashboard', chats: 'Chats', knowledge: 'Knowledge Base', leads: 'Leads', reminders: 'Reminders', broadcast: 'Broadcast' };
+  const titles = { dashboard: 'Dashboard', chats: 'Chats', knowledge: 'Knowledge Base', leads: 'Leads', reminders: 'Reminders', scheduled: 'Scheduled Messages', broadcast: 'Broadcast' };
   document.getElementById('page-title').textContent = titles[name] || name;
   currentPage = name;
   if (name === 'dashboard') loadDashboard();
@@ -422,6 +435,7 @@ function showPage(name) {
   if (name === 'knowledge') loadKnowledge();
   if (name === 'leads') loadLeads();
   if (name === 'reminders') loadReminders();
+  if (name === 'scheduled') loadScheduledMessages();
   if (name === 'broadcast') loadCampaigns();
 }
 
@@ -857,6 +871,96 @@ async function deleteCampaign(id) {
   if (!confirm('Delete this campaign?')) return;
   const res = await api('/api/campaigns/' + id, { method: 'DELETE' });
   if (res.success) { showToast('Deleted'); loadCampaigns(); }
+  else showToast(res.error || 'Failed', 'error');
+}
+
+// Scheduled Messages
+async function loadScheduledMessages() {
+  const res = await api('/api/scheduled-messages');
+  const tbody = document.getElementById('scheduled-table-body');
+  if (!res.success || !res.data.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-clock"></i><p>No scheduled messages. Schedule one to send at a specific time.</p></div></td></tr>';
+    return;
+  }
+  const now = new Date();
+  tbody.innerHTML = res.data.map(s => {
+    const due = new Date(s.scheduledAt) < now && s.status === 'pending';
+    const cls = due ? 'status-negotiation' : s.status === 'sent' ? 'status-won' : s.status === 'failed' ? 'status-lost' : 'status-new';
+    const errHint = s.lastError ? `<br><small style="color:#e74c3c;font-size:11px;">${escapeHtml(s.lastError)}</small>` : '';
+    return `<tr>
+      <td><strong>${escapeHtml(s.title || '(no title)')}</strong></td>
+      <td>${s.phone}</td>
+      <td style="max-width:260px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.message)}</div></td>
+      <td>${new Date(s.scheduledAt).toLocaleString()} ${due ? '<span style="color:#e74c3c;font-size:11px;">OVERDUE</span>' : ''}</td>
+      <td><span class="status-badge ${cls}">${s.status}${s.retryCount ? ` (retry ${s.retryCount})` : ''}</span>${errHint}</td>
+      <td>
+        <button class="btn btn-sm" style="background:#f0f0f0;" onclick="editScheduledMessage('${s._id}')"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="deleteScheduledMessage('${s._id}')"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('add-scheduled-btn').addEventListener('click', () => showScheduledMessageModal());
+
+document.getElementById('sched-run-now-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('sched-run-now-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+  try {
+    const res = await api('/api/cron/run-now');
+    if (res.success && res.data) {
+      const sm = res.data.scheduledMessages || {};
+      showToast(`Done: ${sm.sent || 0} sent, ${sm.failed || 0} failed, ${sm.pending || 0} pending`);
+    } else {
+      showToast(res.error || 'Run failed', 'error');
+    }
+  } catch (e) {
+    showToast('Run failed', 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-play"></i> Run Now';
+  loadScheduledMessages();
+});
+
+function showScheduledMessageModal(data = null) {
+  document.getElementById('modal-title').textContent = data ? 'Edit Scheduled Message' : 'New Scheduled Message';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label>Title (optional)</label><input id="s-title" value="${escapeHtml(data?.title || '')}" placeholder="e.g. Follow up with Ahmed"></div>
+    <div class="form-group"><label>Phone Number</label><input id="s-phone" value="${data?.phone || ''}" placeholder="923001234567"></div>
+    <div class="form-group"><label>Message</label><textarea id="s-message" rows="4" placeholder="Type your message...">${escapeHtml(data?.message || '')}</textarea></div>
+    <div class="form-group"><label>Schedule Date & Time</label><input type="datetime-local" id="s-scheduled" value="${data?.scheduledAt ? new Date(data.scheduledAt).toISOString().slice(0,16) : ''}"></div>
+  `;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-sm" style="background:#f0f0f0;" onclick="document.getElementById('modal-overlay').classList.add('hidden')">Cancel</button>
+    <button class="btn btn-primary btn-sm" onclick="saveScheduledMessage('${data?._id || ''}')">${data ? 'Update' : 'Schedule'}</button>
+  `;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+async function saveScheduledMessage(id) {
+  const title = document.getElementById('s-title').value.trim();
+  const phone = document.getElementById('s-phone').value.trim();
+  const message = document.getElementById('s-message').value.trim();
+  const scheduledAt = document.getElementById('s-scheduled').value;
+  if (!phone || !message || !scheduledAt) { showToast('Phone, message and date required', 'error'); return; }
+  const url = id ? '/api/scheduled-messages/' + id : '/api/scheduled-messages';
+  const method = id ? 'PUT' : 'POST';
+  const res = await api(url, { method, body: JSON.stringify({ title, phone, message, scheduledAt: new Date(scheduledAt).toISOString() }) });
+  if (res.success) { showToast(id ? 'Updated' : 'Scheduled'); document.getElementById('modal-overlay').classList.add('hidden'); loadScheduledMessages(); }
+  else showToast(res.error || 'Failed', 'error');
+}
+
+async function editScheduledMessage(id) {
+  const res = await api('/api/scheduled-messages');
+  const s = res.data?.find(x => x._id === id);
+  if (s) showScheduledMessageModal(s);
+}
+
+async function deleteScheduledMessage(id) {
+  if (!confirm('Delete this scheduled message?')) return;
+  const res = await api('/api/scheduled-messages/' + id, { method: 'DELETE' });
+  if (res.success) { showToast('Deleted'); loadScheduledMessages(); }
   else showToast(res.error || 'Failed', 'error');
 }
 

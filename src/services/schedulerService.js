@@ -6,15 +6,18 @@ async function runDueChecks() {
     await connectDB();
     const reminderService = require('./reminderService');
     const campaignService = require('./campaignService');
+    const scheduledMessageService = require('./scheduledMessageService');
     const reminders = await reminderService.checkAndSendDueReminders();
     const campaigns = await campaignService.checkAndSendScheduledCampaigns();
-    if (reminders.sent > 0 || campaigns.length > 0) {
-      logger.info('Due checks executed:', { reminders, campaigns });
+    const scheduledMessages = await scheduledMessageService.checkAndSendDueScheduledMessages();
+    const anyWork = (reminders && reminders.sent > 0) || campaigns.length > 0 || (scheduledMessages && scheduledMessages.sent > 0);
+    if (anyWork) {
+      logger.info('Due checks executed:', { reminders, campaigns, scheduledMessages });
     }
-    return { reminders, campaigns };
+    return { reminders, campaigns, scheduledMessages };
   } catch (err) {
     logger.error('runDueChecks error:', err.message);
-    return { reminders: null, campaigns: null };
+    return { reminders: null, campaigns: null, scheduledMessages: null };
   }
 }
 
