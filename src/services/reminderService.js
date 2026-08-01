@@ -39,6 +39,12 @@ async function checkAndSendDueReminders() {
     let failed = 0;
     for (const reminder of due) {
       try {
+        const claimed = await Reminder.updateOne(
+          { _id: reminder._id, status: 'pending' },
+          { $set: { status: 'sending' } }
+        );
+        if (claimed.modifiedCount === 0) continue;
+
         let text = `Reminder: ${reminder.title}`;
         if (reminder.description) text += `\n${reminder.description}`;
         text += `\n\nType: ${reminder.type.replace('_', ' ')}`;
@@ -55,6 +61,8 @@ async function checkAndSendDueReminders() {
         if (reminder.retryCount >= 3) {
           reminder.status = 'failed';
           failed++;
+        } else {
+          reminder.status = 'pending';
         }
         await reminder.save();
         logger.error('Reminder send failed:', { title: reminder.title, retry: reminder.retryCount, error: err.message });

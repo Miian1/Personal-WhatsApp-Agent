@@ -58,6 +58,12 @@ async function checkAndSendDueScheduledMessages() {
     let failed = 0;
     for (const scheduled of due) {
       try {
+        const claimed = await ScheduledMessage.updateOne(
+          { _id: scheduled._id, status: 'pending' },
+          { $set: { status: 'sending' } }
+        );
+        if (claimed.modifiedCount === 0) continue;
+
         await whatsappService.sendTextMessage(scheduled.phone, scheduled.message);
         scheduled.status = 'sent';
         scheduled.sentAt = new Date();
@@ -70,6 +76,8 @@ async function checkAndSendDueScheduledMessages() {
         if (scheduled.retryCount >= 3) {
           scheduled.status = 'failed';
           failed++;
+        } else {
+          scheduled.status = 'pending';
         }
         await scheduled.save();
         logger.error('Scheduled message send failed:', { title: scheduled.title, retry: scheduled.retryCount, error: err.message });
