@@ -1,5 +1,7 @@
 const logger = require('../utils/logger');
 
+let schedulerTimer = null;
+
 async function runDueChecks() {
   try {
     const connectDB = require('../config/db');
@@ -25,4 +27,23 @@ async function runDueChecksFireAndForget() {
   return runDueChecks().catch(() => null);
 }
 
-module.exports = { runDueChecks, runDueChecksFireAndForget };
+function startAutoScheduler() {
+  if (schedulerTimer) return schedulerTimer;
+  const intervalMs = Math.max(5000, parseInt(process.env.SCHEDULER_INTERVAL_MS || '30000', 10) || 30000);
+  logger.info(`Auto scheduler started (checks every ${intervalMs}ms)`);
+  schedulerTimer = setInterval(() => {
+    runDueChecksFireAndForget();
+  }, intervalMs);
+  if (schedulerTimer.unref) schedulerTimer.unref();
+  return schedulerTimer;
+}
+
+function stopAutoScheduler() {
+  if (schedulerTimer) {
+    clearInterval(schedulerTimer);
+    schedulerTimer = null;
+    logger.info('Auto scheduler stopped');
+  }
+}
+
+module.exports = { runDueChecks, runDueChecksFireAndForget, startAutoScheduler, stopAutoScheduler };

@@ -127,7 +127,10 @@ tr:last-child td { border-bottom: none; }
 .clickable { cursor: pointer; color: var(--primary-dark); font-weight: 600; }
 .clickable:hover { text-decoration: underline; }
 .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; letter-spacing: 0.2px; }
-.countdown { font-size: 12px; font-weight: 600; color: var(--primary-dark); margin-top: 3px; }
+.countdown { display: inline-flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--primary-dark); margin-top: 3px; max-width: 220px; }
+.countdown .cd-icon { color: var(--primary-dark); margin-right: 4px; }
+.cd-bar { display: block; width: 100%; height: 5px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+.cd-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--primary), #06b6d4); border-radius: 4px; transition: width 1s linear; }
 .countdown.live { animation: pulse 1.5s infinite; }
 .countdown.stale { color: #e74c3c; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
@@ -755,7 +758,7 @@ async function loadReminders() {
     const cls = due ? 'status-negotiation' : r.status === 'sent' ? 'status-won' : r.status === 'failed' ? 'status-lost' : 'status-new';
     const errHint = r.lastError ? `<br><small style="color:#e74c3c;font-size:11px;">${escapeHtml(r.lastError)}</small>` : '';
     const countdown = r.status === 'pending'
-      ? `<div class="countdown" data-countdown="${new Date(r.scheduledAt).toISOString()}" data-id="${r._id}">${due ? '<span style="color:#e74c3c;">OVERDUE - will send on next check</span>' : formatCountdown(new Date(r.scheduledAt) - now)}</div>`
+      ? `<div class="countdown" data-countdown="${new Date(r.scheduledAt).toISOString()}" data-id="${r._id}"><span>${due ? '<span style="color:#e74c3c;"><i class="fas fa-paper-plane cd-icon"></i>OVERDUE - will send on next check</span>' : '<i class="fas fa-hourglass-half cd-icon"></i><span class="cd-text">' + formatCountdown(new Date(r.scheduledAt) - now) + '</span>'}</span><span class="cd-bar"><span class="cd-fill"></span></span></div>`
       : '<span style="color:#999;font-size:12px;">—</span>';
     return `<tr>
       <td><strong>${escapeHtml(r.title)}</strong>${r.description ? '<br><small style="color:#999">'+escapeHtml(r.description)+'</small>':''}${errHint}</td>
@@ -895,7 +898,7 @@ async function loadScheduledMessages() {
     const cls = due ? 'status-negotiation' : s.status === 'sent' ? 'status-won' : s.status === 'failed' ? 'status-lost' : 'status-new';
     const errHint = s.lastError ? `<br><small style="color:#e74c3c;font-size:11px;">${escapeHtml(s.lastError)}</small>` : '';
     const countdown = s.status === 'pending'
-      ? `<div class="countdown" data-countdown="${new Date(s.scheduledAt).toISOString()}" data-id="${s._id}">${due ? '<span style="color:#e74c3c;">OVERDUE - will send on next check</span>' : formatCountdown(new Date(s.scheduledAt) - now)}</div>`
+      ? `<div class="countdown" data-countdown="${new Date(s.scheduledAt).toISOString()}" data-id="${s._id}"><span>${due ? '<span style="color:#e74c3c;"><i class="fas fa-paper-plane cd-icon"></i>OVERDUE - will send on next check</span>' : '<i class="fas fa-hourglass-half cd-icon"></i><span class="cd-text">' + formatCountdown(new Date(s.scheduledAt) - now) + '</span>'}</span><span class="cd-bar"><span class="cd-fill"></span></span></div>`
       : '<span style="color:#999;font-size:12px;">—</span>';
     return `<tr>
       <td><strong>${escapeHtml(s.title || '(no title)')}</strong></td>
@@ -1081,6 +1084,7 @@ async function saveLead(id) {
 // Countdown engine for reminders & scheduled messages
 let countdownTimer = null;
 let lastAutoSendAt = 0;
+let lastSoftRefreshAt = 0;
 
 function formatCountdown(ms) {
   if (ms < 0) return 'OVERDUE';
@@ -1095,6 +1099,8 @@ function formatCountdown(ms) {
   return `${sec}s`;
 }
 
+const CD_TOTAL_MS = 24 * 60 * 60 * 1000;
+
 function updateCountdowns() {
   const els = document.querySelectorAll('.countdown[data-countdown]');
   const now = Date.now();
@@ -1103,18 +1109,23 @@ function updateCountdowns() {
     const target = new Date(el.dataset.countdown).getTime();
     const remaining = target - now;
     if (remaining <= 0) {
-      el.innerHTML = '<span style="color:#e74c3c;">Sending now...</span>';
+      el.innerHTML = '<span style="color:#e74c3c;"><i class="fas fa-paper-plane cd-icon"></i>Sending now...</span>';
       el.classList.add('stale');
       anyDue = true;
-    } else if (remaining < 60000) {
-      el.textContent = formatCountdown(remaining);
-      el.classList.add('live');
-    } else {
-      el.textContent = formatCountdown(remaining);
-      el.classList.remove('live');
+      return;
     }
+    const text = el.querySelector('.cd-text');
+    if (text) text.textContent = formatCountdown(remaining);
+    const fill = el.querySelector('.cd-fill');
+    if (fill) {
+      const pct = Math.max(2, Math.min(100, (remaining / CD_TOTAL_MS) * 100));
+      fill.style.width = pct + '%';
+    }
+    if (remaining < 60000) el.classList.add('live');
+    else el.classList.remove('live');
   });
   if (anyDue) maybeAutoSend();
+  maybeSoftRefresh();
 }
 
 function maybeAutoSend() {
@@ -1127,6 +1138,17 @@ function maybeAutoSend() {
     if (currentPage === 'reminders') loadReminders();
     if (currentPage === 'scheduled') loadScheduledMessages();
   }).catch(() => {});
+}
+
+function maybeSoftRefresh() {
+  // Silently refresh the current list while any countdown is pending so the
+  // server-side auto-send (every SCHEDULER_INTERVAL_MS) shows up as "sent".
+  const now = Date.now();
+  if (now - lastSoftRefreshAt < 15000) return;
+  if (!document.querySelector('.countdown[data-countdown]')) return;
+  lastSoftRefreshAt = now;
+  if (currentPage === 'reminders') loadReminders();
+  if (currentPage === 'scheduled') loadScheduledMessages();
 }
 
 function startCountdownEngine() {

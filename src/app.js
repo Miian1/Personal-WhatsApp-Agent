@@ -15,6 +15,7 @@ const knowledgeService = require('./services/knowledgeService');
 const reminderService = require('./services/reminderService');
 const campaignService = require('./services/campaignService');
 const scheduledMessageService = require('./services/scheduledMessageService');
+const { startAutoScheduler } = require('./services/schedulerService');
 const Knowledge = require('./models/Knowledge');
 const Lead = require('./models/Lead');
 
@@ -297,6 +298,7 @@ app.post('/api/scheduled-messages/:id/send', auth, requireDB, async (req, res) =
 
 // Cron / Scheduler - can be called by an external service (cron-job.org etc)
 // Reminders/campaigns are ALSO checked opportunistically via schedulerService on webhooks and admin views.
+// In long-running Node environments (local/dev), an internal timer auto-sends due items without external cron.
 app.get('/api/cron/check', async (req, res) => {
   try {
     const isVercelCron = req.headers['x-vercel-cron'] === '1';
@@ -364,6 +366,12 @@ app.use((err, req, res, next) => {
 });
 
 module.exports = app;
+
+// Start the internal auto-scheduler for long-running Node processes (local/dev).
+// On Vercel (VERCEL=1) serverless does not keep timers alive; use the /api/cron/check endpoint there.
+if (process.env.VERCEL !== '1') {
+  startAutoScheduler();
+}
 
 async function startServer() {
   try {
