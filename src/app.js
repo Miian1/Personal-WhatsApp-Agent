@@ -15,7 +15,7 @@ const knowledgeService = require('./services/knowledgeService');
 const reminderService = require('./services/reminderService');
 const campaignService = require('./services/campaignService');
 const scheduledMessageService = require('./services/scheduledMessageService');
-const { startAutoScheduler, kickScheduler } = require('./services/schedulerService');
+const { startAutoScheduler, kickScheduler, runDueChecksFireAndForget } = require('./services/schedulerService');
 const Knowledge = require('./models/Knowledge');
 const Lead = require('./models/Lead');
 
@@ -188,6 +188,7 @@ app.get('/api/stats', auth, requireDB, async (req, res) => {
 // Reminders
 app.get('/api/reminders', auth, requireDB, async (req, res) => {
   try {
+    runDueChecksFireAndForget();
     const reminders = await reminderService.getReminders(req.query);
     res.json({ success: true, data: reminders });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -258,6 +259,7 @@ app.delete('/api/campaigns/:id', auth, requireDB, async (req, res) => {
 // Scheduled Messages
 app.get('/api/scheduled-messages', auth, requireDB, async (req, res) => {
   try {
+    runDueChecksFireAndForget();
     const scheduled = await scheduledMessageService.getScheduledMessages(req.query);
     res.json({ success: true, data: scheduled });
   } catch (err) { res.status(500).json({ error: err.message }); }
