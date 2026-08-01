@@ -127,6 +127,10 @@ tr:last-child td { border-bottom: none; }
 .clickable { cursor: pointer; color: var(--primary-dark); font-weight: 600; }
 .clickable:hover { text-decoration: underline; }
 .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; letter-spacing: 0.2px; }
+.countdown { font-size: 12px; font-weight: 600; color: var(--primary-dark); margin-top: 3px; }
+.countdown.live { animation: pulse 1.5s infinite; }
+.countdown.stale { color: #e74c3c; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 .status-new { background: #e3f2fd; color: #1976d2; }
 .status-contacted { background: #fff3e0; color: #f57c00; }
 .status-qualified { background: #e8f5e9; color: #388e3c; }
@@ -342,7 +346,7 @@ tr:last-child td { border-bottom: none; }
           <div class="table-header"><h4>Reminders</h4><div style="display:flex;gap:8px;"><button class="btn btn-sm" id="run-now-btn" style="background:#e2e8f0;"><i class="fas fa-play"></i> Run Now</button><button class="btn btn-primary btn-sm" id="add-reminder-btn"><i class="fas fa-plus"></i> Add Reminder</button></div></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Title</th><th>Phone</th><th>Type</th><th>Scheduled</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Title</th><th>Phone</th><th>Type</th><th>Scheduled / Countdown</th><th>Status</th><th></th></tr></thead>
               <tbody id="reminders-table-body"></tbody>
             </table>
           </div>
@@ -354,7 +358,7 @@ tr:last-child td { border-bottom: none; }
           <div class="table-header"><h4>Scheduled Messages</h4><div style="display:flex;gap:8px;"><button class="btn btn-sm" id="sched-run-now-btn" style="background:#e2e8f0;"><i class="fas fa-play"></i> Run Now</button><button class="btn btn-primary btn-sm" id="add-scheduled-btn"><i class="fas fa-plus"></i> New Message</button></div></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Title</th><th>Phone</th><th>Message</th><th>Scheduled</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Title</th><th>Phone</th><th>Message</th><th>Scheduled / Countdown</th><th>Status</th><th></th></tr></thead>
               <tbody id="scheduled-table-body"></tbody>
             </table>
           </div>
@@ -750,11 +754,14 @@ async function loadReminders() {
     const due = new Date(r.scheduledAt) < now && r.status === 'pending';
     const cls = due ? 'status-negotiation' : r.status === 'sent' ? 'status-won' : r.status === 'failed' ? 'status-lost' : 'status-new';
     const errHint = r.lastError ? `<br><small style="color:#e74c3c;font-size:11px;">${escapeHtml(r.lastError)}</small>` : '';
+    const countdown = r.status === 'pending'
+      ? `<div class="countdown" data-countdown="${new Date(r.scheduledAt).toISOString()}" data-id="${r._id}">${due ? '<span style="color:#e74c3c;">OVERDUE - will send on next check</span>' : formatCountdown(new Date(r.scheduledAt) - now)}</div>`
+      : '<span style="color:#999;font-size:12px;">—</span>';
     return `<tr>
       <td><strong>${escapeHtml(r.title)}</strong>${r.description ? '<br><small style="color:#999">'+escapeHtml(r.description)+'</small>':''}${errHint}</td>
       <td>${r.phone}</td>
       <td><span class="status-badge status-qualified">${r.type.replace('_',' ')}</span></td>
-      <td>${new Date(r.scheduledAt).toLocaleString()} ${due ? '<span style="color:#e74c3c;font-size:11px;">OVERDUE</span>' : ''}</td>
+      <td>${new Date(r.scheduledAt).toLocaleString()}<br>${countdown}</td>
       <td><span class="status-badge ${cls}">${r.status}${r.retryCount ? ` (retry ${r.retryCount})` : ''}</span></td>
       <td>
         <button class="btn btn-sm" style="background:#f0f0f0;" onclick="editReminder('${r._id}')"><i class="fas fa-edit"></i></button>
@@ -887,11 +894,14 @@ async function loadScheduledMessages() {
     const due = new Date(s.scheduledAt) < now && s.status === 'pending';
     const cls = due ? 'status-negotiation' : s.status === 'sent' ? 'status-won' : s.status === 'failed' ? 'status-lost' : 'status-new';
     const errHint = s.lastError ? `<br><small style="color:#e74c3c;font-size:11px;">${escapeHtml(s.lastError)}</small>` : '';
+    const countdown = s.status === 'pending'
+      ? `<div class="countdown" data-countdown="${new Date(s.scheduledAt).toISOString()}" data-id="${s._id}">${due ? '<span style="color:#e74c3c;">OVERDUE - will send on next check</span>' : formatCountdown(new Date(s.scheduledAt) - now)}</div>`
+      : '<span style="color:#999;font-size:12px;">—</span>';
     return `<tr>
       <td><strong>${escapeHtml(s.title || '(no title)')}</strong></td>
       <td>${s.phone}</td>
       <td style="max-width:260px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.message)}</div></td>
-      <td>${new Date(s.scheduledAt).toLocaleString()} ${due ? '<span style="color:#e74c3c;font-size:11px;">OVERDUE</span>' : ''}</td>
+      <td>${new Date(s.scheduledAt).toLocaleString()}<br>${countdown}</td>
       <td><span class="status-badge ${cls}">${s.status}${s.retryCount ? ` (retry ${s.retryCount})` : ''}</span>${errHint}</td>
       <td>
         <button class="btn btn-sm" style="background:#f0f0f0;" onclick="editScheduledMessage('${s._id}')"><i class="fas fa-edit"></i></button>
@@ -1067,6 +1077,65 @@ async function saveLead(id) {
   if (res.success) { showToast('Lead updated'); document.getElementById('modal-overlay').classList.add('hidden'); loadLeads(); }
   else showToast(res.error || 'Failed', 'error');
 }
+
+// Countdown engine for reminders & scheduled messages
+let countdownTimer = null;
+let lastAutoSendAt = 0;
+
+function formatCountdown(ms) {
+  if (ms < 0) return 'OVERDUE';
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${sec}s`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function updateCountdowns() {
+  const els = document.querySelectorAll('.countdown[data-countdown]');
+  const now = Date.now();
+  let anyDue = false;
+  els.forEach(el => {
+    const target = new Date(el.dataset.countdown).getTime();
+    const remaining = target - now;
+    if (remaining <= 0) {
+      el.innerHTML = '<span style="color:#e74c3c;">Sending now...</span>';
+      el.classList.add('stale');
+      anyDue = true;
+    } else if (remaining < 60000) {
+      el.textContent = formatCountdown(remaining);
+      el.classList.add('live');
+    } else {
+      el.textContent = formatCountdown(remaining);
+      el.classList.remove('live');
+    }
+  });
+  if (anyDue) maybeAutoSend();
+}
+
+function maybeAutoSend() {
+  // Trigger server check when countdowns hit zero (debounced to avoid spam)
+  const now = Date.now();
+  if (now - lastAutoSendAt < 5000) return;
+  lastAutoSendAt = now;
+  api('/api/cron/run-now').then(() => {
+    // Refresh lists silently to reflect updated statuses
+    if (currentPage === 'reminders') loadReminders();
+    if (currentPage === 'scheduled') loadScheduledMessages();
+  }).catch(() => {});
+}
+
+function startCountdownEngine() {
+  if (countdownTimer) return;
+  updateCountdowns();
+  countdownTimer = setInterval(updateCountdowns, 1000);
+}
+
+startCountdownEngine();
 
 // Init
 (async function init() {
